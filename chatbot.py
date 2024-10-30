@@ -1,5 +1,5 @@
 import os
-import openai
+from openai import OpenAI
 from datetime import datetime
 import logging
 from models import db, Appointment
@@ -8,7 +8,7 @@ from email_utils import send_appointment_confirmation, schedule_reminder_email
 # Set up logging and OpenAI configuration
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-openai.api_key = os.environ.get('OPENAI_API_KEY')
+client = OpenAI(api_key=os.environ.get('OPENAI_API_KEY'))
 
 # Metrics tracking
 metrics = {
@@ -20,7 +20,7 @@ metrics = {
 
 # KIT CONSULTING Information
 COMPANY_INFO = """
-KIT CONSULTING es un programa de ayudas del Gobierno de España que permite a pymes diseñar la hoja de ruta para su transformación digital.
+Navegatel es una compañía de desarrollo, actualmente tienen la capcidad de asesores digitales por el estado y pueden getionar KIT DIGITAL y la novedad del KIT CONSULTING, que el KIT CONSULTING es un programa de ayudas del Gobierno de España que permite a pymes diseñar la hoja de ruta para su transformación digital.
 
 Servicios principales:
 1. Inteligencia Artificial - hasta 6.000€
@@ -50,7 +50,7 @@ def get_chat_response(user_message, conversation_history=None):
         messages = [
             {
                 "role": "system",
-                "content": f"Eres un asistente virtual de KIT CONSULTING. Tu objetivo es ayudar a los usuarios a entender el programa de ayudas y guiarlos en el proceso de solicitud. Aquí está la información clave sobre KIT CONSULTING: {COMPANY_INFO}"
+                "content": f"Eres un asistente virtual de Navegatel especializado en el KIT CONSULTING. Tu objetivo es ayudar a los usuarios a entender el programa de ayudas y guiarlos en el proceso de solicitud. IMPORTANTE ofrecerles nuestros servicios y que agenden una cita. COMPORTAMIENTO se muy amigable, haz resupuestas faciles de leer pero no dejes de ser profesional. Aquí está la información clave sobre KIT CONSULTING: {COMPANY_INFO}"
             }
         ]
 
@@ -61,8 +61,8 @@ def get_chat_response(user_message, conversation_history=None):
         # Add the current message
         messages.append({"role": "user", "content": user_message})
 
-        # Get response from OpenAI
-        response = openai.ChatCompletion.create(
+        # Get response from OpenAI using the new API
+        response = client.chat.completions.create(
             model="gpt-4",
             messages=messages,
             max_tokens=500,
@@ -70,7 +70,7 @@ def get_chat_response(user_message, conversation_history=None):
             top_p=0.9
         )
 
-        return response.choices[0].message["content"]
+        return response.choices[0].message.content
 
     except Exception as e:
         logger.error(f"Error generating response: {str(e)}")
