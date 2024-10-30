@@ -5,7 +5,6 @@
     --white: #FFFFFF;
 }
 
-
 html {
     scroll-behavior: smooth;
     scroll-padding-top: 70px;
@@ -14,7 +13,6 @@ html {
 body *{
     font-family: 'MUSEO SANS', MUSEO SANS, sans-serif;
 }
-
 
 /* Navbar styles */
 .navbar {
@@ -169,68 +167,60 @@ body *{
     letter-spacing: 0.5px;
 }
 
-/* Chatbot Button with updated styles */
-@keyframes pulse {
-    0% {
-        box-shadow: 0 4px 20px rgba(216, 0, 29,0.4);
-        transform: scale(1);
-    }
-    50% {
-        box-shadow: 0 4px 25px rgba(216, 0, 29,0.6);
-        transform: scale(1.05);
-    }
-    100% {
-        box-shadow: 0 4px 20px rgba(216, 0, 29,0.4);
-        transform: scale(1);
-    }
-}
-
+/* Chatbot styles with improved visibility */
 .chat-toggle {
-    position: fixed;
-    bottom: 30px;
-    right: 30px;
-    width: 70px;
-    height: 70px;
-    border-radius: 50%;
-    background-color: #d8001d;
-    border: none;
-    box-shadow: 0 4px 20px rgba(216, 0, 29,0.4);
-    color: var(--white);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    z-index: 9999;
-    animation: pulse 2s ease-in-out infinite;
-    transition: transform 0.3s ease;
+    position: fixed !important;
+    bottom: 30px !important;
+    right: 30px !important;
+    width: 70px !important;
+    height: 70px !important;
+    border-radius: 50% !important;
+    background-color: var(--primary-red) !important;
+    color: var(--white) !important;
+    border: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    cursor: pointer !important;
+    z-index: 9999 !important;
+    box-shadow: 0 4px 20px rgba(216, 0, 29, 0.4) !important;
+    transition: transform 0.3s ease, box-shadow 0.3s ease !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 .chat-toggle:hover {
-    animation: none;
-    transform: scale(1.1);
-    box-shadow: 0 6px 25px rgba(216, 0, 29,0.6);
+    transform: scale(1.1) !important;
+    box-shadow: 0 6px 25px rgba(216, 0, 29, 0.6) !important;
 }
 
 .chat-toggle i {
-    width: 32px;
-    height: 32px;
-    stroke-width: 2;
-    filter: drop-shadow(0 2px 4px rgba(0,0,0,0.2));
+    width: 32px !important;
+    height: 32px !important;
+    stroke-width: 2 !important;
+    color: var(--white) !important;
+}
+
+#chatbotInterface {
+    position: fixed;
+    bottom: 0;
+    right: 0;
+    z-index: 9998;
 }
 
 .chat-body {
-    position: fixed;
-    bottom: 120px;
-    right: 30px;
-    width: 380px;
-    height: 520px;
-    background-color: var(--white);
-    border-radius: 15px;
-    box-shadow: 0 8px 30px rgba(0,0,0,0.25);
-    display: flex;
-    flex-direction: column;
-    z-index: 9998;
-    transition: transform 0.3s ease, opacity 0.3s ease;
+    position: fixed !important;
+    bottom: 120px !important;
+    right: 30px !important;
+    width: 380px !important;
+    height: 520px !important;
+    background-color: var(--white) !important;
+    border-radius: 15px !important;
+    box-shadow: 0 8px 30px rgba(0,0,0,0.25) !important;
+    display: none;
+    flex-direction: column !important;
+    z-index: 9997 !important;
+    overflow: hidden !important;
 }
 
 .chat-header {
@@ -359,8 +349,6 @@ body *{
     }
 }
 
-
-
 /* Machacar bootstrap */
 .text-danger{
     color: #d8001d !important;
@@ -377,22 +365,21 @@ body *{
 }
 
 .font-weight-extra-2-bold{
-    font-weight: 800; /* Un valor más alto para un texto más grueso */
+    font-weight: 800;
 }
 .font-weight-extra-bold{
-    font-weight: 700; /* Un valor más alto para un texto más grueso */
+    font-weight: 700;
 }
 
 .bg-base{
     background-color: #f7f7f7 !important;
 }
 .card {
-    min-height: 300px; /* Set your desired minimum height */
-    max-height: 600px; /* Set your desired minimum height */
+    min-height: 300px;
+    max-height: 600px;
 }
-/* footer  */
-/* styles.css */
 
+/* footer */
 footer {
     background-color: #d60000;
     color: white;
@@ -456,7 +443,6 @@ footer a:hover {
     padding-top: 10px;
 }
 
-
 /* solutions section */
 #solutions{
     background: url('/static/disenyo/IMG/FONDO-SOLUCIONES.webp')  no-repeat center center;
@@ -483,24 +469,23 @@ footer a:hover {
     overflow: hidden;
 }
 
-
 #segments h2 {
-    font-weight: 800; /* Font-weight extra bold */
-    color: #d32f2f; /* Color rojo fuerte */
+    font-weight: 800;
+    color: #d32f2f;
 }
 
 #segments h6 {
     text-transform: uppercase;
-    color: #6c757d; /* Color gris claro */
+    color: #6c757d;
     margin-bottom: 1.5rem;
 }
 
 .card {
-    border: none; /* Eliminar bordes */
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1); /* Sombra para realzar la tarjeta */
+    border: none;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
     z-index:2;
-    border-radius: 8px; /* Bordes redondeados */
-    overflow: hidden; /* Evitar que el contenido sobresalga */
+    border-radius: 8px;
+    overflow: hidden;
 }
 .card-body{
     height: 13rem;
@@ -508,22 +493,22 @@ footer a:hover {
 .card-body h5 {
     font-size: 1rem;
     font-weight: bold;
-    color: #000; /* Color negro para el título */
-    margin-bottom: 0.5rem; /* Espacio debajo del título */
+    color: #000;
+    margin-bottom: 0.5rem;
 }
 
 .card-body p {
-    color: #6c757d; /* Texto gris para la descripción */
-    font-size: 0.875rem; /* Tamaño de fuente reducido */
-    margin-bottom: 1rem; /* Espacio debajo del texto descriptivo */
+    color: #6c757d;
+    font-size: 0.875rem;
+    margin-bottom: 1rem;
 }
 
 .card-body h3 {
     font-size: 1.5rem;
-    color: #fff; /* Texto en blanco */
-    background-color: #d32f2f; /* Fondo rojo */
-    padding: 1rem; /* Espacio alrededor del importe */
-    margin: 0; /* Sin margen */
+    color: #fff;
+    background-color: #d32f2f;
+    padding: 1rem;
+    margin: 0;
     font-weight: bold;
     text-align: center;
 }
@@ -531,14 +516,13 @@ footer a:hover {
 .caja {
     background-color: #fff !important;
 }
-/* Decoración adicional en el fondo */
+
 #decoIzq {
     position: absolute;
     top: 0;
     left: 0;
     z-index: 1;
 }
-
 
 #decoDer {
     position: absolute;
@@ -548,4 +532,3 @@ footer a:hover {
     min-width: 49.54vw;
     height: auto;
 }
-
