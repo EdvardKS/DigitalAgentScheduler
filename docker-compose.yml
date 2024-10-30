@@ -1,6 +1,7 @@
 services:
   web:
     build: .
+    restart: unless-stopped
     ports:
       - "5000:5000"
     volumes:
@@ -20,18 +21,18 @@ services:
     volumes:
       - pgdata:/var/lib/postgresql/data
 
-nginx:
-  restart: always
-  build:
-    context: ./nginx
-    dockerfile: nginx.Dockerfile
-  ports:
-    - "80:80"
-    - "443:443"
-  volumes:
-    - /etc/letsencrypt:/etc/letsencrypt
-  depends_on:
-    - web
+  nginx:
+    restart: always
+    build:
+      context: ./nginx
+      dockerfile: nginx.Dockerfile
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - web
     
 volumes:
   pgdata:
