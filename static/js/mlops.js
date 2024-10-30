@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const PIN = '1997';
     const pinModal = new bootstrap.Modal(document.getElementById('pinModal'));
     const dashboardContent = document.getElementById('dashboardContent');
 
@@ -9,16 +8,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // PIN verification
     document.getElementById('verifyPin').addEventListener('click', () => {
         const enteredPin = document.getElementById('pinInput').value;
-        if (enteredPin === PIN) {
-            pinModal.hide();
-            dashboardContent.style.display = 'block';
-            initializeDashboard();
-        } else {
-            document.getElementById('pinInput').classList.add('is-invalid');
-        }
+        
+        fetch('/api/verify-pin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ pin: enteredPin }),
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                pinModal.hide();
+                dashboardContent.style.display = 'block';
+                initializeDashboard();
+            } else {
+                document.getElementById('pinInput').classList.add('is-invalid');
+            }
+        });
     });
 
-    // Initialize performance chart
     function initializeDashboard() {
         const ctx = document.getElementById('performanceChart').getContext('2d');
         new Chart(ctx, {

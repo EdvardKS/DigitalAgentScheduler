@@ -12,7 +12,7 @@ scheduler.start()
 def send_appointment_confirmation(appointment):
     """Send confirmation email for a new appointment"""
     msg = Message(
-        'Appointment Confirmation - AI Engineering Consultancy',
+        f'{os.environ.get("APP_NAME", "AI Engineering Consultancy")} - Appointment Confirmation',
         sender=current_app.config['MAIL_USERNAME'],
         recipients=[appointment.email]
     )
@@ -40,7 +40,7 @@ def send_appointment_confirmation(appointment):
 def send_appointment_reminder(appointment):
     """Send reminder email for an upcoming appointment"""
     msg = Message(
-        'Appointment Reminder - AI Engineering Consultancy',
+        f'{os.environ.get("APP_NAME", "AI Engineering Consultancy")} - Appointment Reminder',
         sender=current_app.config['MAIL_USERNAME'],
         recipients=[appointment.email]
     )

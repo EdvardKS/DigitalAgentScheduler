@@ -12,7 +12,7 @@ logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 # Initialize models
-MODEL_DIR = "model"
+MODEL_DIR = os.environ.get('MODEL_DIR', 'model')
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 # Initialize models for different tasks
@@ -86,38 +86,6 @@ def validate_email(email):
     logger.debug(f"Email validation successful: {email}")
     return True, email
 
-def extract_date(text):
-    """Extract date from text with error handling"""
-    logger.debug(f"Extracting date from: {text}")
-    patterns = [
-        r'(\d{1,2}/\d{1,2}/\d{4})',
-        r'(\d{1,2}-\d{1,2}-\d{4})'
-    ]
-    
-    for pattern in patterns:
-        match = re.search(pattern, text)
-        if match:
-            try:
-                date_str = match.group(1)
-                date_parts = re.split('[/-]', date_str)
-                date = datetime.strptime(f"{date_parts[0]}/{date_parts[1]}/{date_parts[2]}", "%d/%m/%Y")
-                logger.debug(f"Successfully extracted date: {date.strftime('%d/%m/%Y')}")
-                return date.strftime("%d/%m/%Y")
-            except ValueError as e:
-                logger.error(f"Date parsing error: {str(e)}")
-                continue
-    logger.debug("No valid date found")
-    return None
-
-def extract_time(text):
-    """Extract time from text with error handling"""
-    logger.debug(f"Extracting time from: {text}")
-    time_pattern = r'(\d{1,2}:\d{2})'
-    match = re.search(time_pattern, text)
-    result = match.group(1) if match else None
-    logger.debug(f"Extracted time: {result}")
-    return result
-
 def check_availability(date_str, time_str=None):
     """Check if date/time slot is available"""
     logger.debug(f"Checking availability for date: {date_str}, time: {time_str}")
@@ -150,33 +118,6 @@ def check_availability(date_str, time_str=None):
         logger.error(f"Availability check error: {str(e)}")
         return False, "Por favor, proporciona la fecha en formato dd/mm/yyyy y hora en formato HH:MM"
 
-def get_available_slots(date_str):
-    """Get available time slots for a date"""
-    logger.debug(f"Getting available slots for date: {date_str}")
-    try:
-        date = datetime.strptime(date_str, '%d/%m/%Y').date()
-        if date.weekday() >= 5:
-            return []
-        
-        slots = []
-        current = datetime.strptime(BUSINESS_HOURS['start'], '%H:%M')
-        end = datetime.strptime(BUSINESS_HOURS['end'], '%H:%M')
-        
-        while current <= end:
-            time_str = current.strftime('%H:%M')
-            existing = Appointment.query.filter_by(date=date, time=time_str).first()
-            
-            if not existing:
-                slots.append(time_str)
-            
-            current += timedelta(minutes=30)
-        
-        logger.debug(f"Found available slots: {slots}")
-        return slots
-    except ValueError as e:
-        logger.error(f"Error getting available slots: {str(e)}")
-        return []
-
 def create_appointment(data):
     """Create appointment from session data"""
     logger.debug("Creating appointment")
@@ -204,178 +145,26 @@ def create_appointment(data):
         db.session.rollback()
         return False, "Lo siento, ha ocurrido un error al reservar tu cita. ¿Podrías intentarlo nuevamente?"
 
-def initialize_booking_session():
-    """Initialize or reset booking session"""
-    session['booking'] = {
-        'active': True,
-        'step': 'name',
-        'data': {},
-        'previous_step': None
-    }
-    session.modified = True
-    return True
-
-def get_intent(message):
-    """Detect message intent"""
-    message = message.lower()
-    
-    booking_keywords = [
-        'cita', 'reserva', 'agendar', 'reservar', 'consulta',
-        'programar', 'quiero', 'necesito', 'solicitar', 'pedir'
-    ]
-    
-    if any(word in message for word in booking_keywords):
-        return 'booking'
-        
-    try:
-        result = intent_classifier(message)[0]
-        
-        intent_map = {
-            0: 'booking',
-            1: 'modification',
-            2: 'cancellation',
-            3: 'help',
-            4: 'greeting'
+def get_model_metrics():
+    """Get current performance metrics"""
+    if not metrics["response_times"]:
+        return {
+            "avg_response_time": 0,
+            "success_rate": 0,
+            "daily_queries": 0
         }
-        
-        return intent_map.get(int(result['label']), 'unknown')
-    except Exception as e:
-        logger.error(f"Error in intent detection: {str(e)}")
-        return 'unknown'
-
-def handle_booking_step(message):
-    """Handle booking steps with improved error handling"""
-    try:
-        if 'booking' not in session:
-            initialize_booking_session()
-            return "Por favor, proporciona tu nombre completo."
-            
-        current_step = session['booking'].get('step')
-        
-        if current_step == 'name':
-            is_valid, result = validate_name(message)
-            if not is_valid:
-                return result
-                
-            session['booking']['data']['name'] = result
-            session['booking']['step'] = 'email'
-            session.modified = True
-            return "¿Cuál es tu correo electrónico?"
-            
-        elif current_step == 'email':
-            is_valid, result = validate_email(message)
-            if not is_valid:
-                return result
-                
-            session['booking']['data']['email'] = result
-            session['booking']['step'] = 'service'
-            session.modified = True
-            
-            services_list = "\n".join([f"• {service}" for service in SERVICES])
-            return f"¿Qué servicio te interesa?\n\nServicios disponibles:\n{services_list}"
-            
-        elif current_step == 'service':
-            if message not in SERVICES:
-                services_list = "\n".join([f"• {service}" for service in SERVICES])
-                return f"Por favor, elige uno de estos servicios:\n{services_list}"
-                
-            session['booking']['data']['service'] = message
-            session['booking']['step'] = 'date'
-            session.modified = True
-            return "¿Para qué fecha te gustaría la cita? (formato: dd/mm/yyyy)"
-            
-        elif current_step == 'date':
-            date = extract_date(message)
-            if not date:
-                return "Por favor, indica la fecha en formato dd/mm/yyyy (ejemplo: 01/11/2024)"
-                
-            is_available, message_result = check_availability(date)
-            if not is_available:
-                return message_result
-                
-            slots = get_available_slots(date)
-            if not slots:
-                return f"Lo siento, no hay horarios disponibles para el {date}. ¿Te gustaría elegir otra fecha?"
-                
-            session['booking']['data']['date'] = date
-            session['booking']['step'] = 'time'
-            session.modified = True
-            
-            slots_text = ", ".join(slots)
-            return f"Para el {date} tenemos estos horarios disponibles:\n{slots_text}\n\n¿Qué horario prefieres? (formato: HH:MM)"
-            
-        elif current_step == 'time':
-            time = extract_time(message)
-            if not time:
-                return "Por favor, indica la hora en formato HH:MM (ejemplo: 10:30)"
-                
-            is_available, message_result = check_availability(session['booking']['data']['date'], time)
-            if not is_available:
-                return message_result
-                
-            session['booking']['data']['time'] = time
-            session['booking']['step'] = 'confirmation'
-            session.modified = True
-            
-            data = session['booking']['data']
-            return (f"Por favor, confirma los detalles de tu cita:\n\n"
-                    f"👤 Nombre: {data['name']}\n"
-                    f"📧 Email: {data['email']}\n"
-                    f"🔧 Servicio: {data['service']}\n"
-                    f"📅 Fecha: {data['date']}\n"
-                    f"⏰ Hora: {data['time']}\n\n"
-                    "¿Está todo correcto? (responde 'sí' para confirmar o 'no' para modificar)")
-                    
-        elif current_step == 'confirmation':
-            if message.lower() in ['sí', 'si', 'yes']:
-                success, result = create_appointment(session['booking']['data'])
-                if success:
-                    session.pop('booking', None)
-                return result
-            elif message.lower() in ['no', 'modificar']:
-                session['booking']['step'] = 'name'
-                session.modified = True
-                return "De acuerdo, empecemos de nuevo. ¿Cuál es tu nombre completo?"
-            else:
-                return "Por favor, responde 'sí' para confirmar o 'no' para modificar los detalles."
-                
-    except Exception as e:
-        logger.error(f"Error in booking step: {str(e)}")
-        return "Lo siento, ha ocurrido un error. ¿Podrías intentarlo nuevamente?"
-
-def generate_response(message):
-    """Generate chatbot response"""
-    start_time = datetime.now()
-    try:
-        if 'booking' in session and session['booking'].get('active'):
-            response = handle_booking_step(message)
-        else:
-            intent = get_intent(message)
-            
-            if intent == 'booking':
-                initialize_booking_session()
-                response = "¡Hola! Me alegro de que quieras agendar una cita. ¿Cuál es tu nombre completo?"
-            elif intent == 'modification':
-                response = "Para modificar una cita existente, por favor usa el enlace en tu correo de confirmación."
-            elif intent == 'cancellation':
-                response = "Para cancelar una cita, por favor usa el enlace en tu correo de confirmación."
-            elif intent == 'help':
-                response = ("Puedo ayudarte con lo siguiente:\n\n"
-                          "1. Agendar una nueva cita\n"
-                          "2. Informarte sobre nuestros servicios\n"
-                          "3. Guiarte en el proceso de reserva\n\n"
-                          "¿Qué te gustaría hacer?")
-            else:
-                response = ("¡Hola! Soy el asistente virtual de Ingeniería IA. "
-                          "¿Te gustaría agendar una cita con nosotros?")
-        
-        update_metrics(start_time, True)
-        return response
-        
-    except Exception as e:
-        logger.error(f"Error generating response: {str(e)}")
-        update_metrics(start_time, False)
-        return "Lo siento, ha ocurrido un error. ¿Podrías intentarlo de nuevo?"
+    
+    avg_response_time = sum(metrics["response_times"]) / len(metrics["response_times"])
+    success_rate = (metrics["successful_queries"] / metrics["total_queries"]) * 100 if metrics["total_queries"] > 0 else 0
+    
+    today = datetime.now().strftime("%Y-%m-%d")
+    daily_queries = metrics["daily_stats"].get(today, {}).get("queries", 0)
+    
+    return {
+        "avg_response_time": round(avg_response_time, 2),
+        "success_rate": round(success_rate, 2),
+        "daily_queries": daily_queries
+    }
 
 def update_metrics(start_time, success):
     """Update performance metrics"""
@@ -404,23 +193,18 @@ def update_metrics(start_time, success):
         / daily_stats["queries"]
     )
 
-def get_model_metrics():
-    """Get current performance metrics"""
-    if not metrics["response_times"]:
-        return {
-            "avg_response_time": 0,
-            "success_rate": 0,
-            "daily_queries": 0
-        }
-    
-    avg_response_time = sum(metrics["response_times"]) / len(metrics["response_times"])
-    success_rate = (metrics["successful_queries"] / metrics["total_queries"]) * 100 if metrics["total_queries"] > 0 else 0
-    
-    today = datetime.now().strftime("%Y-%m-%d")
-    daily_queries = metrics["daily_stats"].get(today, {}).get("queries", 0)
-    
-    return {
-        "avg_response_time": round(avg_response_time, 2),
-        "success_rate": round(success_rate, 2),
-        "daily_queries": daily_queries
-    }
+def generate_response(message):
+    """Generate chatbot response"""
+    start_time = datetime.now()
+    try:
+        company_name = os.environ.get('APP_NAME', 'Ingeniería IA')
+        response = (f"¡Hola! Soy el asistente virtual de {company_name}. "
+                  "¿Te gustaría agendar una cita con nosotros?")
+        
+        update_metrics(start_time, True)
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error generating response: {str(e)}")
+        update_metrics(start_time, False)
+        return "Lo siento, ha ocurrido un error. ¿Podrías intentarlo de nuevo?"

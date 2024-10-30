@@ -11,7 +11,7 @@ from sqlalchemy import func
 app = Flask(__name__)
 
 # Basic configuration
-app.secret_key = os.environ.get("FLASK_SECRET_KEY") or "dev_key_123"
+app.secret_key = os.environ.get("FLASK_SECRET_KEY")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,
@@ -19,13 +19,13 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
 }
 
 # Mail configuration
-app.config['MAIL_SERVER'] = 'smtp.buzondecorreo.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
+app.config['MAIL_SERVER'] = os.environ.get('MAIL_SERVER')
+app.config['MAIL_PORT'] = int(os.environ.get('MAIL_PORT', 465))
+app.config['MAIL_USE_TLS'] = os.environ.get('MAIL_USE_TLS', 'False').lower() == 'true'
+app.config['MAIL_USE_SSL'] = os.environ.get('MAIL_USE_SSL', 'True').lower() == 'true'
 app.config['MAIL_USERNAME'] = os.environ.get('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.environ.get('MAIL_PASSWORD')
-app.config['BASE_URL'] = 'http://localhost:5000'  # Update this for production
+app.config['BASE_URL'] = os.environ.get('BASE_URL', 'http://localhost:5000')
 
 # Initialize extensions
 db.init_app(app)
@@ -103,7 +103,7 @@ def mlops():
 @app.route('/api/verify-pin', methods=['POST'])
 def verify_pin():
     data = request.get_json()
-    if data.get('pin') == '1997':
+    if data.get('pin') == os.environ.get('CHATBOT_PIN', '1997'):
         session['authenticated'] = True
         return jsonify({"success": True})
     return jsonify({"success": False}), 401
