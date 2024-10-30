@@ -7,13 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const elements = {
                 chatToggle: document.querySelector('.chat-toggle'),
                 chatBody: document.querySelector('.chat-body'),
-                chatInput: document.querySelector('.chat-input-container .form-control'),
+                chatInput: document.querySelector('.chat-input input'),
                 sendButton: document.querySelector('.send-message'),
                 chatMessages: document.querySelector('.chat-messages'),
                 chatClose: document.querySelector('.chat-close')
             };
 
-            // Log element status and validate
+            // Log element status
             Object.entries(elements).forEach(([key, element]) => {
                 console.log(`Element '${key}' found:`, !!element);
                 if (!element) {
@@ -107,14 +107,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Event Listeners with error boundaries and visibility checks
+            // Event Listeners with error boundaries
             const setupEventListeners = () => {
                 try {
                     elements.chatToggle.addEventListener('click', () => {
                         console.log('Chat toggle clicked');
-                        elements.chatBody.style.display = elements.chatBody.style.display === 'none' || !elements.chatBody.style.display ? 'flex' : 'none';
+                        const isHidden = elements.chatBody.style.display === 'none';
+                        elements.chatBody.style.display = isHidden ? 'flex' : 'none';
                         
-                        if (elements.chatBody.style.display === 'flex' && conversationHistory.length === 0) {
+                        if (isHidden && conversationHistory.length === 0) {
                             sendMessage('¡Hola! Soy el asistente virtual de KIT CONSULTING. ¿En qué puedo ayudarte a entender nuestro programa de ayudas?', false);
                         }
                     });
@@ -136,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
 
-                    // Initialize UI state with visibility checks
+                    // Initialize UI state
                     elements.chatBody.style.display = 'none';
                     elements.chatToggle.style.display = 'flex';
                     elements.chatToggle.style.visibility = 'visible';
@@ -159,13 +160,6 @@ document.addEventListener('DOMContentLoaded', () => {
             errorDiv.className = 'chat-error-notification';
             errorDiv.textContent = 'Error initializing chat. Please refresh the page.';
             document.body.appendChild(errorDiv);
-
-            // Try to recover chat button visibility
-            const chatToggle = document.querySelector('.chat-toggle');
-            if (chatToggle) {
-                chatToggle.style.display = 'flex';
-                chatToggle.style.visibility = 'visible';
-            }
         }
     };
 
