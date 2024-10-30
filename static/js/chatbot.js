@@ -1,197 +1,134 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize DOM elements with null checks
-    const chatToggle = document.querySelector('.chat-toggle');
-    const chatBody = document.querySelector('.chat-body');
-    const chatInput = document.querySelector('.chat-input input');
-    const sendButton = document.querySelector('.send-message');
-    const chatMessages = document.querySelector('.chat-messages');
-    const chatClose = document.querySelector('.chat-close');
-
-    // Initialize conversation history
-    let conversationHistory = [];
-
-    // Error logging function
-    const logError = (error, context) => {
-        console.error(`Chatbot Error [${context}]:`, error);
-    };
-
-    // Initialize chat UI if elements exist
-    if (chatToggle && chatBody) {
+    // Initialize chatbot with proper error handling
+    const initChatbot = () => {
         try {
-            // Ensure chat button visibility
-            chatToggle.style.display = 'flex';
-            chatToggle.style.visibility = 'visible';
-            chatToggle.style.opacity = '1';
-            chatToggle.style.zIndex = '9999';
+            // DOM Elements with null checks
+            const elements = {
+                chatToggle: document.querySelector('.chat-toggle'),
+                chatBody: document.querySelector('.chat-body'),
+                chatInput: document.querySelector('.chat-input input'),
+                sendButton: document.querySelector('.send-message'),
+                chatMessages: document.querySelector('.chat-messages'),
+                chatClose: document.querySelector('.chat-close')
+            };
 
-            // Toggle chat window
-            chatToggle.addEventListener('click', () => {
-                try {
-                    chatBody.style.display = chatBody.style.display === 'none' ? 'flex' : 'none';
-                    if (chatBody.style.display === 'flex' && conversationHistory.length === 0) {
-                        // Send initial greeting
-                        sendMessage("¡Hola! Soy el asistente virtual de KIT CONSULTING. ¿En qué puedo ayudarte a entender nuestro programa de ayudas?", false);
-                    }
-                } catch (error) {
-                    logError(error, 'chat-toggle');
+            // Validate all required elements exist
+            Object.entries(elements).forEach(([key, element]) => {
+                if (!element) {
+                    throw new Error(`Required chat element not found: ${key}`);
                 }
             });
 
-            // Close chat window
-            if (chatClose) {
-                chatClose.addEventListener('click', () => {
-                    try {
-                        chatBody.style.display = 'none';
-                    } catch (error) {
-                        logError(error, 'chat-close');
-                    }
-                });
-            }
-        } catch (error) {
-            logError(error, 'chat-initialization');
-        }
-    }
+            // State management
+            let conversationHistory = [];
+            let isProcessing = false;
 
-    // Send message function
-    const sendMessage = async (message, isUser = true) => {
-        try {
-            if (!chatMessages) {
-                throw new Error('Chat messages container not found');
-            }
-
-            // Create message element with improved styling
-            const messageDiv = document.createElement('div');
-            messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
-            messageDiv.innerHTML = `
-                <div class="message-content">
-                    ${message}
-                </div>
-            `;
-            chatMessages.appendChild(messageDiv);
-
-            // Save to conversation history
-            conversationHistory.push({
-                text: message,
-                is_user: isUser
-            });
-
-            // Scroll to bottom
-            chatMessages.scrollTop = chatMessages.scrollHeight;
-
-            // If it's a user message, get bot response
-            if (isUser) {
+            // Send message function
+            const sendMessage = async (message, isUser = true) => {
                 try {
-                    const response = await fetch('/api/chatbot', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            message: message,
-                            conversation_history: conversationHistory.slice(0, -1)
-                        })
+                    const messageDiv = document.createElement('div');
+                    messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
+                    messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
+                    elements.chatMessages.appendChild(messageDiv);
+
+                    // Update conversation history
+                    conversationHistory.push({
+                        text: message,
+                        is_user: isUser
                     });
 
-                    if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    }
+                    elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
 
-                    const data = await response.json();
-                    sendMessage(data.response, false);
-                } catch (error) {
-                    logError(error, 'api-request');
-                    sendMessage('Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.', false);
-                }
-            }
-        } catch (error) {
-            logError(error, 'send-message');
-        }
-    };
+                    if (isUser) {
+                        elements.chatInput.disabled = true;
+                        elements.sendButton.disabled = true;
 
-    // Set up input handling if elements exist
-    if (chatInput && sendButton) {
-        try {
-            // Handle send button click
-            sendButton.addEventListener('click', (e) => {
-                try {
-                    e.preventDefault();
-                    const message = chatInput.value.trim();
-                    if (message) {
-                        sendMessage(message);
-                        chatInput.value = '';
-                    }
-                } catch (error) {
-                    logError(error, 'send-button');
-                }
-            });
+                        try {
+                            const response = await fetch('/api/chatbot', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json'
+                                },
+                                body: JSON.stringify({
+                                    message,
+                                    conversation_history: conversationHistory.slice(0, -1)
+                                })
+                            });
 
-            // Handle enter key
-            chatInput.addEventListener('keypress', (e) => {
-                try {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        const message = chatInput.value.trim();
-                        if (message) {
-                            sendMessage(message);
-                            chatInput.value = '';
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+
+                            const data = await response.json();
+                            await sendMessage(data.response, false);
+                        } finally {
+                            elements.chatInput.disabled = false;
+                            elements.sendButton.disabled = false;
+                            elements.chatInput.focus();
                         }
                     }
                 } catch (error) {
-                    logError(error, 'input-keypress');
+                    console.error('Chatbot Error [send-message]:', error);
+                    if (isUser) {
+                        await sendMessage('Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.', false);
+                    }
+                }
+            };
+
+            // Event handler for sending messages
+            const handleMessageSend = async () => {
+                if (isProcessing) return;
+
+                const message = elements.chatInput.value.trim();
+                if (!message) return;
+
+                try {
+                    isProcessing = true;
+                    elements.chatInput.value = '';
+                    await sendMessage(message);
+                } catch (error) {
+                    console.error('Chatbot Error [handle-message]:', error);
+                } finally {
+                    isProcessing = false;
+                }
+            };
+
+            // Event Listeners
+            elements.chatToggle.addEventListener('click', () => {
+                const isHidden = elements.chatBody.style.display === 'none';
+                elements.chatBody.style.display = isHidden ? 'flex' : 'none';
+                
+                if (isHidden && conversationHistory.length === 0) {
+                    sendMessage('¡Hola! Soy el asistente virtual de KIT CONSULTING. ¿En qué puedo ayudarte a entender nuestro programa de ayudas?', false);
                 }
             });
+
+            elements.chatClose.addEventListener('click', () => {
+                elements.chatBody.style.display = 'none';
+            });
+
+            elements.sendButton.addEventListener('click', (e) => {
+                e.preventDefault();
+                handleMessageSend();
+            });
+
+            elements.chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleMessageSend();
+                }
+            });
+
+            // Initialize UI state
+            elements.chatBody.style.display = 'none';
+            elements.chatToggle.style.display = 'flex';
+            elements.chatToggle.style.visibility = 'visible';
+
         } catch (error) {
-            logError(error, 'input-setup');
+            console.error('Chatbot Error [initialization]:', error);
         }
-    }
+    };
 
-    // Add chat message styles
-    const style = document.createElement('style');
-    style.textContent = `
-        .chat-message {
-            margin: 10px;
-            padding: 10px;
-            border-radius: 10px;
-            max-width: 80%;
-            word-break: break-word;
-        }
-
-        .user-message {
-            background-color: #d8001d;
-            color: white;
-            margin-left: auto;
-        }
-
-        .bot-message {
-            background-color: #f8f9fa;
-            color: #333;
-            margin-right: auto;
-        }
-
-        .message-content {
-            white-space: pre-wrap;
-        }
-
-        .chat-messages {
-            max-height: calc(100vh - 250px);
-            overflow-y: auto;
-            padding: 15px;
-            scrollbar-width: thin;
-            scrollbar-color: #d8001d #f8f9fa;
-        }
-
-        .chat-messages::-webkit-scrollbar {
-            width: 8px;
-        }
-
-        .chat-messages::-webkit-scrollbar-track {
-            background: #f8f9fa;
-        }
-
-        .chat-messages::-webkit-scrollbar-thumb {
-            background-color: #d8001d;
-            border-radius: 4px;
-        }
-    `;
-    document.head.appendChild(style);
+    // Initialize chatbot
+    initChatbot();
 });
