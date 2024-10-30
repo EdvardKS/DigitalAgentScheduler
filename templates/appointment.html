@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <!-- Toast Container -->
+    <div class="toast-container position-fixed top-0 end-0 p-3">
+        <div id="notificationToast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toastTitle">Notification</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toastMessage"></div>
+        </div>
+    </div>
+
+    <h2 class="mb-4">Book an Appointment</h2>
+    <div class="alert alert-info">
+        <h5>Booking Information:</h5>
+        <ul>
+            <li>Appointments available Monday to Friday only</li>
+            <li>Available hours: 10:30 AM - 2:00 PM</li>
+            <li>Bookings are not available on Elche holidays</li>
+        </ul>
+    </div>
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <form id="appointmentForm">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Full Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="service" class="form-label">Service</label>
+                            <select class="form-control" id="service" name="service" required>
+                                <option value="">Select a service</option>
+                                <option value="AI Development">AI Development</option>
+                                <option value="AI Consulting">AI Consulting</option>
+                                <option value="Web Development">Web Development</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="date" class="form-label">Date</label>
+                            <input type="date" class="form-control" id="date" name="date" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="time" class="form-label">Time</label>
+                            <select class="form-control" id="time" name="time" required>
+                                <option value="">Select a time</option>
+                            </select>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Book Appointment</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Need Help?</h5>
+                    <p class="card-text">If you have any questions about our services or scheduling, feel free to use our chat assistant or contact us directly.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dateInput = document.getElementById('date');
+    const timeSelect = document.getElementById('time');
+    const toast = new bootstrap.Toast(document.getElementById('notificationToast'));
+    
+    function showNotification(message, type = 'success') {
+        const toastEl = document.getElementById('notificationToast');
+        const toastTitle = document.getElementById('toastTitle');
+        const toastMessage = document.getElementById('toastMessage');
+        
+        // Set toast styles based on type
+        toastEl.classList.remove('bg-success', 'bg-danger', 'text-white');
+        toastTitle.classList.remove('text-white');
+        
+        if (type === 'success') {
+            toastEl.classList.add('bg-success', 'text-white');
+            toastTitle.classList.add('text-white');
+            toastTitle.textContent = 'Success';
+        } else {
+            toastEl.classList.add('bg-danger', 'text-white');
+            toastTitle.classList.add('text-white');
+            toastTitle.textContent = 'Error';
+        }
+        
+        toastMessage.textContent = message;
+        toast.show();
+    }
+    
+    // Generate available time slots
+    function generateTimeSlots() {
+        timeSelect.innerHTML = '<option value="">Select a time</option>';
+        const times = [];
+        let currentTime = new Date('2024-01-01T10:30:00');
+        const endTime = new Date('2024-01-01T14:00:00');
+        
+        while (currentTime <= endTime) {
+            const timeString = currentTime.toLocaleTimeString('en-US', { 
+                hour: '2-digit', 
+                minute: '2-digit',
+                hour12: false 
+            });
+            times.push(timeString);
+            currentTime.setMinutes(currentTime.getMinutes() + 30);
+        }
+        
+        times.forEach(time => {
+            const option = document.createElement('option');
+            option.value = time;
+            option.textContent = time;
+            timeSelect.appendChild(option);
+        });
+    }
+
+    // Set min date to today
+    const today = new Date();
+    dateInput.min = today.toISOString().split('T')[0];
+    
+    // Disable weekends and validate date
+    dateInput.addEventListener('input', function() {
+        const selectedDate = new Date(this.value);
+        const dayOfWeek = selectedDate.getDay();
+        
+        if (dayOfWeek === 0 || dayOfWeek === 6) {
+            this.value = '';
+            showNotification('Please select a weekday (Monday to Friday).', 'error');
+        } else {
+            generateTimeSlots();
+        }
+    });
+
+    // Form submission
+    document.getElementById('appointmentForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = {
+            name: document.getElementById('name').value,
+            email: document.getElementById('email').value,
+            service: document.getElementById('service').value,
+            date: document.getElementById('date').value,
+            time: document.getElementById('time').value
+        };
+
+        try {
+            const response = await fetch('/api/book-appointment', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(formData)
+            });
+
+            const data = await response.json();
+            
+            if (response.ok) {
+                showNotification('Appointment booked successfully! Check your email for confirmation.', 'success');
+                document.getElementById('appointmentForm').reset();
+            } else {
+                showNotification(data.error || 'Error booking appointment. Please try again.', 'error');
+            }
+        } catch (error) {
+            showNotification('Error booking appointment. Please try again.', 'error');
+        }
+    });
+
+    // Initialize time slots
+    generateTimeSlots();
+});
+</script>
+
+<style>
+.toast {
+    transition: opacity 0.3s ease-in-out;
+}
+
+.toast.hide {
+    opacity: 0;
+}
+
+.toast.show {
+    opacity: 1;
+}
+
+@media (max-width: 768px) {
+    .toast-container {
+        width: 100%;
+        padding: 1rem;
+    }
+    
+    .toast {
+        width: 100%;
+        max-width: none;
+    }
+}
+</style>
+{% endblock %}

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000" viewBox="0 0 1000 1000">
+  <defs>
+    <pattern id="text-pattern" x="0" y="0" width="250" height="100" patternUnits="userSpaceOnUse">
+      <text x="10" y="30" fill="rgba(227,24,55,0.03)" font-family="Arial" font-weight="bold" font-size="24">KIT CONSULTING</text>
+    </pattern>
+  </defs>
+  <rect x="0" y="0" width="100%" height="100%" fill="url(#text-pattern)" />
+</svg>

@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+ENV/
+
+# IDEs and editors
+.idea/
+.vscode/
+*.swp
+*.swo
+.project
+.settings/
+
+# Logs
+*.log
+logs/
+
+# Database
+*.sqlite3
+*.db
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# System Files
+.DS_Store
+Thumbs.db
+
+# Replit specific
+.replit
+.breakpoints
+replit.nix
+poetry.lock
+.upm/
+.config/
+.cache/
+
+# Generated files
+generated-icon.png
+*.pyc
+.pytest_cache/
+.coverage
+htmlcov/

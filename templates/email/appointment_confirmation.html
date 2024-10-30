@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            background-color: #FF0000;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .content {
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .button {
+            display: inline-block;
+            padding: 10px 20px;
+            background-color: #FF0000;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+        .footer {
+            text-align: center;
+            padding: 20px;
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <img src="cid:logo" alt="Company Logo" style="width: 100px;">
+            <h1>Appointment Confirmation</h1>
+        </div>
+        <div class="content">
+            <p>Dear {{ name }},</p>
+            <p>Your appointment has been successfully scheduled. Here are the details:</p>
+            <ul>
+                <li><strong>Service:</strong> {{ service }}</li>
+                <li><strong>Date:</strong> {{ date }}</li>
+                <li><strong>Time:</strong> {{ time }}</li>
+            </ul>
+            <p>
+                <a href="{{ cancel_url }}" class="button">Cancel Appointment</a>
+                <a href="{{ reschedule_url }}" class="button">Reschedule</a>
+            </p>
+            <p>If you need to make any changes, please click the buttons above or contact us.</p>
+        </div>
+        <div class="footer">
+            <p>AI Engineering Consultancy</p>
+            <p>Contact us: {{ contact_email }}</p>
+            <p>© 2024 AI Engineering Consultancy. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container py-5">
+    <h2 class="text-center mb-5">Book an Appointment</h2>
+    <div class="row">
+        <div class="col-md-6">
+            <div id="calendar"></div>
+        </div>
+        <div class="col-md-6">
+            <form id="appointmentForm" class="card p-4">
+                <div class="mb-3">
+                    <label for="name" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" required>
+                </div>
+                <div class="mb-3">
+                    <label for="date" class="form-label">Date</label>
+                    <input type="date" class="form-control" id="date" required>
+                </div>
+                <div class="mb-3">
+                    <label for="time" class="form-label">Time</label>
+                    <select class="form-control" id="time" required>
+                        <option value="">Select time</option>
+                        <option value="09:00">9:00 AM</option>
+                        <option value="10:00">10:00 AM</option>
+                        <option value="11:00">11:00 AM</option>
+                        <option value="14:00">2:00 PM</option>
+                        <option value="15:00">3:00 PM</option>
+                        <option value="16:00">4:00 PM</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="service" class="form-label">Service</label>
+                    <select class="form-control" id="service" required>
+                        <option value="">Select service</option>
+                        <option value="Web Development">Web Development</option>
+                        <option value="Mobile App Development">Mobile App Development</option>
+                        <option value="Digital Marketing">Digital Marketing</option>
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary">Book Appointment</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/appointments.js') }}"></script>
+{% endblock %}

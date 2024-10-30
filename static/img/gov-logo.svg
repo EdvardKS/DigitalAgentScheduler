@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200">
+  <rect fill="#C60B1E" width="400" height="200"/>
+  <text x="200" y="120" font-family="Arial" font-size="24" fill="white" text-anchor="middle">Gobierno de España</text>
+  <path fill="white" d="M180,50h40v20h20v20h-20v20h-40v-20h-20v-20h20z"/>
+</svg>
