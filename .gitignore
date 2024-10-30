@@ -64,3 +64,5 @@ generated-icon.png
 .pytest_cache/
 .coverage
 htmlcov/
+
+.env
