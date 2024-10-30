@@ -30,7 +30,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     chatBody.style.display = chatBody.style.display === 'none' ? 'flex' : 'none';
                     if (chatBody.style.display === 'flex' && conversationHistory.length === 0) {
                         // Send initial greeting
-                        sendMessage("¡Hola! ¿En qué puedo ayudarte con el programa KIT CONSULTING?", false);
+                        sendMessage("¡Hola! Soy el asistente virtual de KIT CONSULTING. ¿En qué puedo ayudarte a entender nuestro programa de ayudas?", false);
                     }
                 } catch (error) {
                     logError(error, 'chat-toggle');
@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Chat messages container not found');
             }
 
-            // Create message element
+            // Create message element with improved styling
             const messageDiv = document.createElement('div');
             messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
             messageDiv.innerHTML = `
@@ -145,7 +145,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Add styles
+    // Add chat message styles
     const style = document.createElement('style');
     style.textContent = `
         .chat-message {
@@ -170,6 +170,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         .message-content {
             white-space: pre-wrap;
+        }
+
+        .chat-messages {
+            max-height: calc(100vh - 250px);
+            overflow-y: auto;
+            padding: 15px;
+            scrollbar-width: thin;
+            scrollbar-color: #d8001d #f8f9fa;
+        }
+
+        .chat-messages::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .chat-messages::-webkit-scrollbar-track {
+            background: #f8f9fa;
+        }
+
+        .chat-messages::-webkit-scrollbar-thumb {
+            background-color: #d8001d;
+            border-radius: 4px;
         }
     `;
     document.head.appendChild(style);
