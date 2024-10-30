@@ -2,6 +2,7 @@ from datetime import datetime
 from flask_sqlalchemy import SQLAlchemy
 import os
 
+# Initialize SQLAlchemy
 db = SQLAlchemy()
 
 class Appointment(db.Model):

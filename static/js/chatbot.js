@@ -143,12 +143,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Initialize UI state
                     elements.chatBody.style.display = 'none';
                     elements.chatToggle.style.display = 'flex';
-                    elements.chatInput.focus();
 
                     console.log('Event listeners initialized successfully');
                 } catch (error) {
                     console.error('Error setting up event listeners:', error);
-                    throw error;
                 }
             };
 
@@ -158,11 +156,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (error) {
             console.error('Chatbot initialization error:', error);
-            // Add visible error notification for users
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'chat-error-notification';
-            errorDiv.textContent = 'Error initializing chat. Please refresh the page.';
-            document.body.appendChild(errorDiv);
         }
     };
 
