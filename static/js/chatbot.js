@@ -7,13 +7,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const elements = {
                 chatToggle: document.querySelector('.chat-toggle'),
                 chatBody: document.querySelector('.chat-body'),
-                chatInput: document.querySelector('.chat-input input'),
+                chatInput: document.querySelector('.chat-input'),
                 sendButton: document.querySelector('.send-message'),
                 chatMessages: document.querySelector('.chat-messages'),
                 chatClose: document.querySelector('.chat-close')
             };
 
-            // Log element status
+            // Log element status and validate
             Object.entries(elements).forEach(([key, element]) => {
                 console.log(`Element '${key}' found:`, !!element);
                 if (!element) {

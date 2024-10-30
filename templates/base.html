@@ -45,11 +45,15 @@
             <div class="row">
                 <h4 class="text-center mb-5 py-3 fs-6">Ponte en contacto con nosotros para resolver tus dudas o solicitar el kit consulting</h4>
                 <!-- Logo -->
-                <div class="col-md-3 mb-4 mb-md-0 ">
+                <div class="col-md-3 mb-4 mb-md-0">
                     <img src="static/disenyo/SVG/01-LOGO.svg" alt="Navegatel Logo" class="img-fluid" style="width: 150px;">
                     <div class="d-flex gap-2 mt-2">
-                        <a href="https://instagram.com" target="_blank"><img src="instagram-icon.png" alt="Instagram" style="width: 20px;"></a>
-                        <a href="https://facebook.com" target="_blank"><img src="facebook-icon.png" alt="Facebook" style="width: 20px;"></a>
+                        <a href="https://instagram.com" class="text-white" target="_blank">
+                            <i data-feather="instagram"></i>
+                        </a>
+                        <a href="https://facebook.com" class="text-white" target="_blank">
+                            <i data-feather="facebook"></i>
+                        </a>
                     </div>
                 </div>
 
@@ -94,7 +98,7 @@
     </footer>
 
     <!-- Chatbot Interface -->
-    <div id="chatbotInterface">
+    <div id="chatbotInterface" class="chatbot-container">
         <!-- Chatbot Toggle Button -->
         <button class="chat-toggle" aria-label="Abrir chat de asistencia" title="¿Necesitas ayuda? ¡Chatea con nosotros!">
             <i data-feather="message-circle"></i>
@@ -111,7 +115,7 @@
             <div class="chat-messages" role="log" aria-live="polite"></div>
             <div class="chat-input-container">
                 <div class="input-group">
-                    <input type="text" class="form-control" placeholder="Escribe tu mensaje..." aria-label="Mensaje">
+                    <input type="text" class="form-control chat-input" placeholder="Escribe tu mensaje..." aria-label="Mensaje">
                     <button class="btn btn-danger send-message" aria-label="Enviar mensaje">
                         <i data-feather="send"></i>
                     </button>
