@@ -99,24 +99,21 @@
 
     <!-- Chatbot Interface -->
     <div id="chatbotInterface" class="chatbot-container">
-        <!-- Chatbot Toggle Button -->
-        <button class="chat-toggle" aria-label="Abrir chat de asistencia" title="¿Necesitas ayuda? ¡Chatea con nosotros!">
+        <button class="chat-toggle" aria-label="Abrir chat de asistencia">
             <i data-feather="message-circle"></i>
         </button>
-
-        <!-- Chatbot Window -->
-        <div class="chat-body" aria-hidden="true">
+        <div class="chat-body">
             <div class="chat-header">
-                <h5 class="mb-0">KIT CONSULTING Asistente</h5>
-                <button class="chat-close" aria-label="Cerrar chat">
+                <h5 class="mb-0">Asistente Virtual</h5>
+                <button class="chat-close">
                     <i data-feather="x"></i>
                 </button>
             </div>
-            <div class="chat-messages" role="log" aria-live="polite"></div>
+            <div class="chat-messages"></div>
             <div class="chat-input-container">
                 <div class="input-group">
-                    <input type="text" class="form-control chat-input" placeholder="Escribe tu mensaje..." aria-label="Mensaje">
-                    <button class="btn btn-danger send-message" aria-label="Enviar mensaje">
+                    <input type="text" class="form-control chat-input" placeholder="Escribe tu mensaje...">
+                    <button class="btn btn-danger send-message">
                         <i data-feather="send"></i>
                     </button>
                 </div>

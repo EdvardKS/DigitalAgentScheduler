@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const elements = {
                 chatToggle: document.querySelector('.chat-toggle'),
                 chatBody: document.querySelector('.chat-body'),
-                chatInput: document.querySelector('.chat-input'),
+                chatInput: document.querySelector('.form-control.chat-input'),
                 sendButton: document.querySelector('.send-message'),
                 chatMessages: document.querySelector('.chat-messages'),
                 chatClose: document.querySelector('.chat-close')
@@ -34,14 +34,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
                     elements.chatMessages.appendChild(messageDiv);
 
+                    // Save message to conversation history
                     conversationHistory.push({
                         text: message,
                         is_user: isUser
                     });
 
+                    // Auto-scroll to latest message
                     elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
 
                     if (isUser) {
+                        // Disable input during processing
                         elements.chatInput.disabled = true;
                         elements.sendButton.disabled = true;
 
@@ -67,8 +70,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             await sendMessage(data.response, false);
                         } catch (error) {
                             console.error('API request error:', error);
-                            throw error;
+                            await sendMessage('Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.', false);
                         } finally {
+                            // Re-enable input after processing
                             elements.chatInput.disabled = false;
                             elements.sendButton.disabled = false;
                             elements.chatInput.focus();
@@ -76,9 +80,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (error) {
                     console.error('Message sending error:', error);
-                    if (isUser) {
-                        await sendMessage('Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.', false);
-                    }
                 }
             };
 
@@ -110,26 +111,28 @@ document.addEventListener('DOMContentLoaded', () => {
             // Event Listeners with error boundaries
             const setupEventListeners = () => {
                 try {
+                    // Toggle chat window
                     elements.chatToggle.addEventListener('click', () => {
                         console.log('Chat toggle clicked');
-                        const isHidden = elements.chatBody.style.display === 'none';
-                        elements.chatBody.style.display = isHidden ? 'flex' : 'none';
-                        
-                        if (isHidden && conversationHistory.length === 0) {
+                        elements.chatBody.style.display = elements.chatBody.style.display === 'none' ? 'flex' : 'none';
+                        if (elements.chatBody.style.display === 'flex' && conversationHistory.length === 0) {
                             sendMessage('¡Hola! Soy el asistente virtual de KIT CONSULTING. ¿En qué puedo ayudarte a entender nuestro programa de ayudas?', false);
                         }
                     });
 
+                    // Close chat window
                     elements.chatClose.addEventListener('click', () => {
                         console.log('Chat close clicked');
                         elements.chatBody.style.display = 'none';
                     });
 
+                    // Send message button
                     elements.sendButton.addEventListener('click', (e) => {
                         e.preventDefault();
                         handleMessageSend();
                     });
 
+                    // Send message on Enter
                     elements.chatInput.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -140,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Initialize UI state
                     elements.chatBody.style.display = 'none';
                     elements.chatToggle.style.display = 'flex';
-                    elements.chatToggle.style.visibility = 'visible';
+                    elements.chatInput.focus();
 
                     console.log('Event listeners initialized successfully');
                 } catch (error) {
