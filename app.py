@@ -71,7 +71,6 @@ def is_valid_appointment_time(date_str, time_str):
     except ValueError:
         return False, "Invalid date or time format."
 
-# Security decorator for protected routes
 def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -114,21 +113,17 @@ def get_appointment_analytics():
     today = datetime.now().date()
     month_start = today.replace(day=1)
     
-    # Get total appointments
     total = Appointment.query.count()
     
-    # Get monthly appointments
     monthly = Appointment.query.filter(
         Appointment.date >= month_start
     ).count()
     
-    # Get service distribution
     service_stats = db.session.query(
         Appointment.service,
         func.count(Appointment.id).label('count')
     ).group_by(Appointment.service).all()
     
-    # Get timeline data (last 7 days)
     timeline_data = []
     for i in range(7):
         date = today - timedelta(days=i)
@@ -138,7 +133,6 @@ def get_appointment_analytics():
             'count': count
         })
     
-    # Get recent appointments
     recent = Appointment.query.order_by(
         Appointment.date.desc()
     ).limit(5).all()
@@ -160,21 +154,19 @@ def get_appointment_analytics():
 @app.route('/api/analytics/inquiries', methods=['GET'])
 @require_pin
 def get_inquiry_analytics():
-    # Get chatbot metrics
     metrics = get_model_metrics()
     
-    # Get last 7 days of inquiry data
     today = datetime.now().date()
     timeline_data = []
     for i in range(7):
         date = today - timedelta(days=i)
         timeline_data.append({
             'date': date.strftime('%Y-%m-%d'),
-            'count': metrics.get('daily_queries', 0)  # Using current day's queries as sample
+            'count': metrics.get('daily_queries', 0)
         })
     
     return jsonify({
-        'total': metrics.get('daily_queries', 0) * 7,  # Sample total
+        'total': metrics.get('daily_queries', 0) * 7,
         'avgResponseTime': metrics.get('avg_response_time', 0),
         'successRate': metrics.get('success_rate', 0),
         'timelineLabels': [d['date'] for d in reversed(timeline_data)],
@@ -185,7 +177,6 @@ def get_inquiry_analytics():
 def book_appointment():
     data = request.get_json()
     
-    # Validate appointment time
     is_valid, error_message = is_valid_appointment_time(data['date'], data['time'])
     if not is_valid:
         return jsonify({"error": error_message}), 400
@@ -201,9 +192,7 @@ def book_appointment():
         db.session.add(new_appointment)
         db.session.commit()
         
-        # Send confirmation email
         send_appointment_confirmation(new_appointment)
-        # Schedule reminder email
         schedule_reminder_email(new_appointment)
         
         return jsonify({"message": "Appointment booked successfully!"})
@@ -214,9 +203,10 @@ def book_appointment():
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot_response():
     data = request.get_json()
-    message = data['message']
+    message = data.get('message', '')
+    conversation_history = data.get('conversation_history', [])
     
-    response = generate_response(message)
+    response = generate_response(message, conversation_history)
     return jsonify({"response": response})
 
 @app.route('/api/metrics', methods=['GET'])
@@ -224,8 +214,7 @@ def chatbot_response():
 def metrics():
     return jsonify(get_model_metrics())
 
-with app.app_context():
-    db.create_all()
-
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
     app.run(host='0.0.0.0', port=5000)
