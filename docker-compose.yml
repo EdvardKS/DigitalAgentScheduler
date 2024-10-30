@@ -1,0 +1,37 @@
+services:
+  web:
+    build: .
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/app
+    environment:
+      - FLASK_ENV=production  # Cambia a 'production' para producción
+      - FLASK_APP=app.py  # Cambia esto al nombre de tu archivo principal
+      - DATABASE_URL=postgresql://user:password@db:5432/dbname  # Cambia según tu configuración
+
+  db:
+    image: postgres:latest
+    restart: always
+    environment:
+      POSTGRES_USER: user       # Cambia esto a tu nombre de usuario
+      POSTGRES_PASSWORD: password # Cambia esto a tu contraseña
+      POSTGRES_DB: dbname        # Cambia esto al nombre de tu base de datos
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+nginx:
+  restart: always
+  build:
+    context: ./nginx
+    dockerfile: nginx.Dockerfile
+  ports:
+    - "80:80"
+    - "443:443"
+  volumes:
+    - /etc/letsencrypt:/etc/letsencrypt
+  depends_on:
+    - web
+    
+volumes:
+  pgdata:

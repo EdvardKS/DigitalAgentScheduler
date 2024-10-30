@@ -43,6 +43,7 @@ IMPORTANTE:
 - Responde solo ha preguntas relacionadas con el KIT CONSULTING, Navegatel o KIT DIGITAL.
 - Somos especialistas en Inteligencia Artificial, Ventas Digitales y Estrategia y Rendimiento de Negocio.
 - Guía al usuario para que elija IA y que coja una cita utilizando este mismo CHATBOT.
+- El contacto de navegatel es 
 
 """
 
@@ -69,7 +70,7 @@ def get_chat_response(user_message, conversation_history=None):
 
         # Get response from OpenAI
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="ft:gpt-3.5-turbo-0125:personal::AO2C9xih",
             messages=messages,
             max_tokens=500,
             temperature=0.7,
