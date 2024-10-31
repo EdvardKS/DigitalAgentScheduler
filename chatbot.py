@@ -1,12 +1,10 @@
 import os
 import openai
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 from models import db, Appointment
 from email_utils import send_appointment_confirmation, schedule_reminder_email
 from dotenv import load_dotenv
-import json
-import re
 
 # Load environment variables
 load_dotenv()
@@ -34,7 +32,7 @@ metrics = {
     "error_types": {}
 }
 
-# Company Information
+# Navegatel and KIT CONSULTING Information
 COMPANY_INFO = """
 Somos Navegatel, una empresa especializada en asesoría digital, expertos en el programa KIT CONSULTING. El KIT CONSULTING es un programa de ayudas del Gobierno de España que permite a pymes diseñar la hoja de ruta para su transformación digital.
 
@@ -48,10 +46,6 @@ Segmentos de empresas:
 - Segmento B (50-99 empleados): 18.000€
 - Segmento C (100-249 empleados): 24.000€
 
-Horario de atención para citas:
-- Lunes a Viernes
-- 10:30 AM a 2:00 PM
-
 Requisitos básicos:
 - Tener domicilio fiscal en territorio español
 - Ser pequeña o mediana empresa
@@ -62,7 +56,7 @@ Requisitos básicos:
 IMPORTANTE:
 - Responde solo ha preguntas relacionadas con el KIT CONSULTING o servicios de Navegatel.
 - Somos especialistas en Inteligencia Artificial, Ventas Digitales y Estrategia y Rendimiento de Negocio.
-- Si el usuario quiere agendar una cita, ayúdale a completar el proceso pidiendo la información necesaria.
+- Guía al usuario para que elija IA y que coja una cita utilizando este mismo CHATBOT.
 - Para contacto directo: info@navegatel.org o 673 66 09 10
 """
 
@@ -71,67 +65,6 @@ FALLBACK_RESPONSES = [
     "Disculpa la interrupción. ¿Podrías reformular tu pregunta?",
     "En este momento no puedo procesar tu solicitud. Para asistencia inmediata, contáctanos en info@navegatel.org o 673 66 09 10.",
 ]
-
-def extract_appointment_info(message):
-    """Extract appointment information from user message"""
-    appointment_info = {}
-    
-    # Extract email using regex
-    email_pattern = r'[\w\.-]+@[\w\.-]+\.\w+'
-    email_match = re.search(email_pattern, message)
-    if email_match:
-        appointment_info['email'] = email_match.group()
-    
-    # Extract date using common formats
-    date_patterns = [
-        r'\d{4}-\d{2}-\d{2}',  # YYYY-MM-DD
-        r'\d{2}/\d{2}/\d{4}',  # DD/MM/YYYY
-        r'\d{2}-\d{2}-\d{4}'   # DD-MM-YYYY
-    ]
-    
-    for pattern in date_patterns:
-        date_match = re.search(pattern, message)
-        if date_match:
-            try:
-                date_str = date_match.group()
-                if '/' in date_str:
-                    date = datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d')
-                else:
-                    date = datetime.strptime(date_str, '%Y-%m-%d').strftime('%Y-%m-%d')
-                appointment_info['date'] = date
-                break
-            except ValueError:
-                continue
-    
-    # Extract time using 24-hour format
-    time_pattern = r'([01]?[0-9]|2[0-3]):[0-5][0-9]'
-    time_match = re.search(time_pattern, message)
-    if time_match:
-        appointment_info['time'] = time_match.group()
-    
-    # Extract service
-    services = ['Inteligencia Artificial', 'Ventas Digitales', 'Estrategia y Rendimiento']
-    for service in services:
-        if service.lower() in message.lower():
-            appointment_info['service'] = service
-            break
-    
-    # Extract name (assuming it's at the beginning of the message or after "me llamo" or "soy")
-    name_patterns = [
-        r'me llamo ([A-Za-zÁáÉéÍíÓóÚúÑñ\s]+)',
-        r'soy ([A-Za-zÁáÉéÍíÓóÚúÑñ\s]+)',
-        r'^([A-Za-zÁáÉéÍíÓóÚúÑñ\s]+)'
-    ]
-    
-    for pattern in name_patterns:
-        name_match = re.search(pattern, message, re.IGNORECASE)
-        if name_match:
-            name = name_match.group(1).strip()
-            if len(name) > 2:  # Avoid single letters or very short strings
-                appointment_info['name'] = name
-                break
-    
-    return appointment_info
 
 def get_fallback_response():
     """Get a random fallback response"""
@@ -150,31 +83,11 @@ def get_chat_response(user_message, conversation_history=None):
         if conversation_history is None:
             conversation_history = []
 
-        # Check if message contains appointment-related keywords
-        appointment_keywords = ['cita', 'agendar', 'reservar', 'appointment', 'consulta']
-        is_appointment_request = any(keyword in user_message.lower() for keyword in appointment_keywords)
-
-        # Extract appointment information if it's an appointment request
-        appointment_info = {}
-        if is_appointment_request:
-            appointment_info = extract_appointment_info(user_message)
-
         # Prepare the conversation with system context
         messages = [
             {
                 "role": "system",
-                "content": f"""Eres el asistente virtual de Navegatel, especializado en el programa KIT CONSULTING. 
-                Tu objetivo es ayudar a los usuarios a entender el programa de ayudas y guiarlos en el proceso de solicitud.
-                
-                Si el usuario quiere agendar una cita, ayúdale a completar el proceso pidiendo la información necesaria:
-                - Nombre completo
-                - Email
-                - Servicio de interés (IA, Ventas Digitales, o Estrategia)
-                - Fecha preferida (L-V, 10:30-14:00)
-                
-                Información importante: {COMPANY_INFO}
-                
-                Appointment Info Detected: {json.dumps(appointment_info, ensure_ascii=False)}"""
+                "content": f"Eres el asistente virtual de Navegatel, especializado en el programa KIT CONSULTING. Tu objetivo es ayudar a los usuarios a entender el programa de ayudas y guiarlos en el proceso de solicitud. Aquí está la información clave: {COMPANY_INFO}"
             }
         ]
 
@@ -188,7 +101,7 @@ def get_chat_response(user_message, conversation_history=None):
         # Get response from OpenAI with timeout handling
         try:
             response = openai.ChatCompletion.create(
-                model="ft:gpt-4o-2024-08-06:personal::AO1TjiAT",
+                model="gpt-3.5-turbo",
                 messages=messages,
                 max_tokens=500,
                 temperature=0.7,

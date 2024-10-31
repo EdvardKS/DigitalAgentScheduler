@@ -54,96 +54,12 @@ app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5000')
 db.init_app(app)
 mail.init_app(app)
 
-def check_appointment_availability(date, time):
-    """Check if the requested appointment slot is available"""
-    try:
-        existing_appointment = Appointment.query.filter_by(
-            date=date,
-            time=time
-        ).first()
-        
-        # Check if date is a weekend
-        appointment_date = datetime.strptime(date, '%Y-%m-%d')
-        if appointment_date.weekday() >= 5:
-            return False, "No disponible en fin de semana"
-            
-        # Check if time is within business hours (10:30 AM - 2:00 PM)
-        appointment_time = datetime.strptime(time, '%H:%M').time()
-        if appointment_time < time(10, 30) or appointment_time > time(14, 0):
-            return False, "Fuera del horario de atención (10:30 - 14:00)"
-            
-        return not bool(existing_appointment), None
-        
-    except Exception as e:
-        logger.error(f"Error checking appointment availability: {str(e)}")
-        return False, "Error al verificar disponibilidad"
-
-@app.route('/api/appointments/check', methods=['POST'])
-def check_availability():
-    """API endpoint to check appointment availability"""
-    try:
-        data = request.get_json()
-        date = data.get('date')
-        time_slot = data.get('time')
-        
-        if not date or not time_slot:
-            return jsonify({'error': 'Fecha y hora requeridas'}), 400
-            
-        is_available, error_message = check_appointment_availability(date, time_slot)
-        
-        return jsonify({
-            'available': is_available,
-            'error': error_message
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in check_availability endpoint: {str(e)}")
-        return jsonify({'error': 'Error al verificar disponibilidad'}), 500
-
-@app.route('/api/appointments/schedule', methods=['POST'])
-def schedule_appointment():
-    """API endpoint to schedule an appointment"""
-    try:
-        data = request.get_json()
-        required_fields = ['name', 'email', 'date', 'time', 'service']
-        
-        # Validate required fields
-        if not all(field in data for field in required_fields):
-            return jsonify({'error': 'Todos los campos son requeridos'}), 400
-            
-        # Check availability
-        is_available, error_message = check_appointment_availability(data['date'], data['time'])
-        if not is_available:
-            return jsonify({'error': error_message or 'Horario no disponible'}), 400
-            
-        # Create appointment
-        appointment = Appointment(
-            name=data['name'],
-            email=data['email'],
-            date=datetime.strptime(data['date'], '%Y-%m-%d').date(),
-            time=data['time'],
-            service=data['service']
-        )
-        
-        db.session.add(appointment)
-        db.session.commit()
-        
-        # Send confirmation email
-        try:
-            send_appointment_confirmation(appointment)
-            schedule_reminder_email(appointment)
-        except Exception as e:
-            logger.error(f"Error sending confirmation email: {str(e)}")
-            # Don't return error to client, appointment was still created
-            
-        return jsonify({
-            'message': 'Cita agendada exitosamente',
-            'appointment_id': appointment.id
-        })
-        
-    except Exception as e:
-        logger.error(f"Error in schedule_appointment endpoint: {str(e)}")
-        return jsonify({'error': 'Error al agendar la cita'}), 500
+def check_rate_limit(ip):
+    """Check if the request should be rate limited"""
+    now = datetime.now()
+    request_counts[ip] = [t for t in request_counts[ip] if now - t < timedelta(seconds=RATE_WINDOW)]
+    request_counts[ip].append(now)
+    return len(request_counts[ip]) <= RATE_LIMIT
 
 @app.route('/')
 def index():
