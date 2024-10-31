@@ -21,7 +21,8 @@ openai.api_key = os.getenv('OPENAI_API_KEY')
 if not openai.api_key:
     logger.error("OpenAI API key not found in environment variables")
     raise ValueError("OpenAI API key is required")
-
+    
+MODELO_FINETUNED = os.getenv('MODELO_FINETUNED')
 # Metrics tracking
 metrics = {
     "total_queries": 0,
@@ -101,7 +102,7 @@ def get_chat_response(user_message, conversation_history=None):
         # Get response from OpenAI with timeout handling
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model=MODELO_FINETUNED,
                 messages=messages,
                 max_tokens=500,
                 temperature=0.7,
