@@ -1,0 +1,24 @@
+// Colors
+$primary-color: #d8001d;
+$secondary-color: #333333;
+$white: #ffffff;
+$black: #000000;
+$gray: #f7f7f7;
+
+// Typography
+$font-family-base: Arial, sans-serif;
+$font-size-base: 1rem;
+$line-height-base: 1.6;
+
+// Breakpoints
+$breakpoint-sm: 576px;
+$breakpoint-md: 768px;
+$breakpoint-lg: 992px;
+$breakpoint-xl: 1200px;
+
+// Spacing
+$spacing-unit: 1rem;
+$container-padding: $spacing-unit * 2;
+
+// Animation
+$transition-base: all 0.3s ease;

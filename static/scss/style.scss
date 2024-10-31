@@ -1,0 +1,32 @@
+// Import abstracts
+@import 'abstracts/variables';
+@import 'abstracts/mixins';
+@import 'abstracts/functions';
+
+// Import vendors
+@import 'vendors/bootstrap';
+
+// Import base styles
+@import 'base/reset';
+@import 'base/typography';
+@import 'base/utilities';
+
+// Import layouts
+@import 'layout/header';
+@import 'layout/navigation';
+@import 'layout/footer';
+@import 'layout/grid';
+
+// Import components
+@import 'components/buttons';
+@import 'components/cards';
+@import 'components/forms';
+@import 'components/chatbot';
+
+// Import pages
+@import 'pages/home';
+@import 'pages/analytics';
+@import 'pages/appointment';
+
+// Import themes
+@import 'themes/default';
