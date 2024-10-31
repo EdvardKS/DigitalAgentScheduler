@@ -1,0 +1,10 @@
+{
+  "name": "kit-consulting",
+  "version": "1.0.0",
+  "scripts": {
+    "scss": "sass --watch static/scss/style.scss:static/css/style.css --style compressed"
+  },
+  "dependencies": {
+    "sass": "^1.69.5"
+  }
+}
