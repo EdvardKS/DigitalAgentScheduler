@@ -186,7 +186,7 @@ body * {
     border-radius: 50% !important;
     background-color: var(--primary-red) !important;
     color: var(--white) !important;
-    border: none !important;
+    border: 3px solid var(--white) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
@@ -197,6 +197,36 @@ body * {
     visibility: visible !important;
     opacity: 1 !important;
     padding: 0 !important;
+    overflow: hidden !important;
+    position: relative !important;
+}
+
+.chat-toggle::before {
+    content: '' !important;
+    position: absolute !important;
+    top: -50% !important;
+    left: -50% !important;
+    width: 200% !important;
+    height: 200% !important;
+    background: linear-gradient(
+        45deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.1) 45%,
+        rgba(255, 255, 255, 0.5) 50%,
+        rgba(255, 255, 255, 0.1) 55%,
+        transparent 100%
+    ) !important;
+    transform: rotate(-45deg) !important;
+    animation: metallic-shine 3s infinite !important;
+}
+
+@keyframes metallic-shine {
+    0% {
+        left: -200% !important;
+    }
+    100% {
+        left: 200% !important;
+    }
 }
 
 .chat-toggle:hover {
@@ -209,6 +239,8 @@ body * {
     height: 32px !important;
     stroke-width: 2 !important;
     color: var(--white) !important;
+    position: relative !important;
+    z-index: 1 !important;
 }
 
 .chat-body {
