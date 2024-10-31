@@ -13,7 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 chatClose: document.querySelector('.chat-close')
             };
 
-            // Log element status and validate
+            // Validate all required elements
             Object.entries(elements).forEach(([key, element]) => {
                 console.log(`Element '${key}' found:`, !!element);
                 if (!element) {
@@ -24,6 +24,39 @@ document.addEventListener('DOMContentLoaded', () => {
             // State management
             let conversationHistory = [];
             let isProcessing = false;
+            let retryCount = 0;
+            const MAX_RETRIES = 3;
+            const RETRY_DELAY = 2000;
+
+            // Error handling utilities
+            const showError = (message, isTemporary = true) => {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'chat-message system-message error-message';
+                errorDiv.innerHTML = `<div class="message-content">${message}</div>`;
+                elements.chatMessages.appendChild(errorDiv);
+                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+
+                if (isTemporary) {
+                    setTimeout(() => {
+                        errorDiv.remove();
+                    }, 5000);
+                }
+            };
+
+            // Retry logic with exponential backoff
+            const retry = async (fn, retryCount) => {
+                try {
+                    return await fn();
+                } catch (error) {
+                    if (retryCount < MAX_RETRIES) {
+                        const delay = RETRY_DELAY * Math.pow(2, retryCount);
+                        console.log(`Retrying in ${delay}ms... (Attempt ${retryCount + 1}/${MAX_RETRIES})`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                        return retry(fn, retryCount + 1);
+                    }
+                    throw error;
+                }
+            };
 
             // Send message function with enhanced error handling
             const sendMessage = async (message, isUser = true) => {
@@ -34,45 +67,58 @@ document.addEventListener('DOMContentLoaded', () => {
                     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
                     elements.chatMessages.appendChild(messageDiv);
 
-                    // Save message to conversation history
                     conversationHistory.push({
                         text: message,
                         is_user: isUser
                     });
 
-                    // Auto-scroll to latest message
                     elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
 
                     if (isUser) {
-                        // Disable input during processing
                         elements.chatInput.disabled = true;
                         elements.sendButton.disabled = true;
 
                         try {
-                            console.log('Making API request...');
-                            const response = await fetch('/api/chatbot', {
-                                method: 'POST',
-                                headers: {
-                                    'Content-Type': 'application/json'
-                                },
-                                body: JSON.stringify({
-                                    message,
-                                    conversation_history: conversationHistory.slice(0, -1)
-                                })
-                            });
+                            const response = await retry(async () => {
+                                console.log('Making API request...');
+                                const res = await fetch('/api/chatbot', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json'
+                                    },
+                                    body: JSON.stringify({
+                                        message,
+                                        conversation_history: conversationHistory.slice(0, -1)
+                                    })
+                                });
 
-                            if (!response.ok) {
-                                throw new Error(`HTTP error! status: ${response.status}`);
-                            }
+                                if (!res.ok) {
+                                    const errorData = await res.json();
+                                    if (res.status === 429) {
+                                        throw new Error('Rate limit exceeded');
+                                    }
+                                    throw new Error(errorData.error || 'Server error');
+                                }
 
-                            const data = await response.json();
-                            console.log('API response received:', data);
-                            await sendMessage(data.response, false);
+                                return res.json();
+                            }, 0);
+
+                            console.log('API response received:', response);
+                            await sendMessage(response.response, false);
+                            retryCount = 0; // Reset retry count on success
+
                         } catch (error) {
                             console.error('API request error:', error);
-                            await sendMessage('Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.', false);
+                            let errorMessage = 'Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.';
+                            
+                            if (error.message === 'Rate limit exceeded') {
+                                errorMessage = 'Has enviado demasiados mensajes. Por favor, espera un momento.';
+                            } else if (!navigator.onLine) {
+                                errorMessage = 'Parece que no hay conexión a internet. Por favor, verifica tu conexión.';
+                            }
+                            
+                            showError(errorMessage);
                         } finally {
-                            // Re-enable input after processing
                             elements.chatInput.disabled = false;
                             elements.sendButton.disabled = false;
                             elements.chatInput.focus();
@@ -80,10 +126,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } catch (error) {
                     console.error('Message sending error:', error);
+                    showError('Error al enviar el mensaje. Por favor, inténtalo de nuevo.');
                 }
             };
 
-            // Message handler with improved error handling
+            // Message handler with improved validation
             const handleMessageSend = async () => {
                 if (isProcessing) {
                     console.log('Message processing in progress, skipping...');
@@ -96,6 +143,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     return;
                 }
 
+                if (message.length > 500) {
+                    showError('El mensaje es demasiado largo. Por favor, acórtalo.');
+                    return;
+                }
+
                 try {
                     console.log('Processing new message:', message);
                     isProcessing = true;
@@ -103,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     await sendMessage(message);
                 } catch (error) {
                     console.error('Message handling error:', error);
+                    showError('Error al procesar el mensaje. Por favor, inténtalo de nuevo.');
                 } finally {
                     isProcessing = false;
                 }
@@ -138,6 +191,15 @@ document.addEventListener('DOMContentLoaded', () => {
                             e.preventDefault();
                             handleMessageSend();
                         }
+                    });
+
+                    // Network status monitoring
+                    window.addEventListener('online', () => {
+                        showError('¡Conexión restaurada!', true);
+                    });
+
+                    window.addEventListener('offline', () => {
+                        showError('Sin conexión a internet. Los mensajes se enviarán cuando se restaure la conexión.');
                     });
 
                     // Initialize UI state
