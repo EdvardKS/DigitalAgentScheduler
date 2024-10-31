@@ -1,0 +1,39 @@
+@use '../abstracts/variables' as *;
+@use '../abstracts/mixins' as *;
+@use '../abstracts/functions' as *;
+
+footer {
+  background-color: $primary-color;
+  color: $white;
+  padding: $spacing-unit * 2 0;
+
+  h3 {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+  }
+
+  .list-unstyled {
+    margin-bottom: 0;
+
+    li {
+      margin-bottom: 0.5rem;
+    }
+  }
+
+  .footer-logo {
+    width: 150px;
+    margin-bottom: 1rem;
+  }
+
+  .social-links {
+    a {
+      color: $white;
+      margin-right: 1rem;
+      transition: $transition-base;
+
+      &:hover {
+        opacity: 0.8;
+      }
+    }
+  }
+}

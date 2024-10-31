@@ -1,0 +1,27 @@
+@use "sass:map";
+
+// Convert pixels to rem
+@function rem($pixels) {
+  @return ($pixels / 16) + rem;
+}
+
+// Color functions
+@function tint($color, $percentage) {
+  @return mix(white, $color, $percentage);
+}
+
+@function shade($color, $percentage) {
+  @return mix(black, $color, $percentage);
+}
+
+// Z-index management
+$z-indexes: (
+  "modal": 1050,
+  "dropdown": 1000,
+  "nav": 100,
+  "content": 1
+);
+
+@function z($key) {
+  @return map.get($z-indexes, $key);
+}
