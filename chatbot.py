@@ -101,7 +101,7 @@ def get_chat_response(user_message, conversation_history=None):
         # Get response from OpenAI with timeout handling
         try:
             response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
+                model="ft:gpt-3.5-turbo-0125:personal::AO2C9xih",
                 messages=messages,
                 max_tokens=500,
                 temperature=0.7,
