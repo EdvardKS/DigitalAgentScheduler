@@ -1,8 +1,0 @@
-{
-  "name": "kit-consulting",
-  "version": "1.0.0",
-  "description": "KIT Consulting website with SCSS",
-  "scripts": {
-    "scss": "sass --watch static/scss/style.scss:static/css/style.css --style compressed"
-  }
-}
