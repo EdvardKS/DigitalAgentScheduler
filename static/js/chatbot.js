@@ -25,6 +25,25 @@ document.addEventListener('DOMContentLoaded', () => {
             const MAX_RETRIES = 3;
             const RETRY_DELAY = 2000;
 
+            const showTypingIndicator = () => {
+                const typingDiv = document.createElement('div');
+                typingDiv.className = 'typing-indicator';
+                typingDiv.innerHTML = `
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                `;
+                elements.chatMessages.appendChild(typingDiv);
+                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
+                return typingDiv;
+            };
+
+            const removeTypingIndicator = (indicator) => {
+                if (indicator && indicator.parentNode) {
+                    indicator.remove();
+                }
+            };
+
             const showError = (message, isTemporary = true) => {
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'chat-message system-message error-message';
@@ -34,7 +53,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (isTemporary) {
                     setTimeout(() => {
-                        errorDiv.remove();
+                        errorDiv.style.opacity = '0';
+                        setTimeout(() => errorDiv.remove(), 300);
                     }, 5000);
                 }
             };
@@ -61,6 +81,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
                     elements.chatMessages.appendChild(messageDiv);
 
+                    // Add animation class after a small delay to trigger the animation
+                    requestAnimationFrame(() => {
+                        messageDiv.style.opacity = '1';
+                        messageDiv.style.transform = 'translateY(0)';
+                    });
+
                     conversationHistory.push({
                         text: message,
                         is_user: isUser
@@ -73,6 +99,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         elements.sendButton.disabled = true;
 
                         try {
+                            const typingIndicator = showTypingIndicator();
+
                             const response = await retry(async () => {
                                 console.log('Making API request...');
                                 const res = await fetch('/api/chatbot', {
@@ -97,6 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                 return res.json();
                             }, 0);
 
+                            removeTypingIndicator(typingIndicator);
                             console.log('API response received:', response);
                             await sendMessage(response.response, false);
                             retryCount = 0;
@@ -159,14 +188,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     elements.chatToggle.addEventListener('click', () => {
                         console.log('Chat toggle clicked');
                         elements.chatBody.style.display = elements.chatBody.style.display === 'none' ? 'flex' : 'none';
-                        if (elements.chatBody.style.display === 'flex' && conversationHistory.length === 0) {
-                            sendMessage('¡Hola! Soy el asistente virtual de Navegatel. ¿En qué puedo ayudarte a entender nuestro programa de KIT CONSULTING?', false);
+                        
+                        if (elements.chatBody.style.display === 'flex') {
+                            // Add active class after display is set to trigger animation
+                            setTimeout(() => {
+                                elements.chatBody.classList.add('active');
+                            }, 10);
+                            
+                            if (conversationHistory.length === 0) {
+                                sendMessage('¡Hola! Soy el asistente virtual de Navegatel. ¿En qué puedo ayudarte a entender nuestro programa de KIT CONSULTING?', false);
+                            }
+                        } else {
+                            elements.chatBody.classList.remove('active');
                         }
                     });
 
                     elements.chatClose.addEventListener('click', () => {
                         console.log('Chat close clicked');
-                        elements.chatBody.style.display = 'none';
+                        elements.chatBody.classList.remove('active');
+                        setTimeout(() => {
+                            elements.chatBody.style.display = 'none';
+                        }, 300);
                     });
 
                     elements.sendButton.addEventListener('click', (e) => {
