@@ -2,13 +2,20 @@
 document.addEventListener('DOMContentLoaded', () => {
     feather.replace();
 
-    // Navbar scroll behavior
+    // Navbar and logo elements
     const navbar = document.querySelector('.navbar');
+    const logo = document.querySelector('.nav-logo');
+    
+    // Navbar scroll behavior with logo color change
     const checkScroll = () => {
-        if (window.scrollY > 50) {
+        const scrollPosition = window.scrollY;
+        
+        if (scrollPosition > 50) {
             navbar.classList.add('scrolled');
+            logo.classList.add('scrolled');
         } else {
             navbar.classList.remove('scrolled');
+            logo.classList.remove('scrolled');
         }
     };
 
