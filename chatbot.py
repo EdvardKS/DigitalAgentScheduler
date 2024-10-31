@@ -32,9 +32,9 @@ metrics = {
     "error_types": {}
 }
 
-# KIT CONSULTING Information
+# Navegatel and KIT CONSULTING Information
 COMPANY_INFO = """
-Somos la compañía Navegatel, asesores digitales preparados para atender a los pymes con el KIT DIGITAL y especialistas con el KIT CONSULTING. El KIT CONSULTING es un programa de ayudas del Gobierno de España que permite a pymes diseñar la hoja de ruta para su transformación digital.
+Somos Navegatel, una empresa especializada en asesoría digital, expertos en el programa KIT CONSULTING. El KIT CONSULTING es un programa de ayudas del Gobierno de España que permite a pymes diseñar la hoja de ruta para su transformación digital.
 
 Servicios principales:
 1. Inteligencia Artificial - hasta 6.000€
@@ -54,10 +54,10 @@ Requisitos básicos:
 - Estar al corriente de obligaciones tributarias
 
 IMPORTANTE:
-- Responde solo ha preguntas relacionadas con el KIT CONSULTING, Navegatel o KIT DIGITAL.
+- Responde solo ha preguntas relacionadas con el KIT CONSULTING o servicios de Navegatel.
 - Somos especialistas en Inteligencia Artificial, Ventas Digitales y Estrategia y Rendimiento de Negocio.
 - Guía al usuario para que elija IA y que coja una cita utilizando este mismo CHATBOT.
-- El contacto de navegatel es info@navegatel.org y teléfono 673 66 09 10
+- Para contacto directo: info@navegatel.org o 673 66 09 10
 """
 
 FALLBACK_RESPONSES = [
@@ -87,7 +87,7 @@ def get_chat_response(user_message, conversation_history=None):
         messages = [
             {
                 "role": "system",
-                "content": f"Eres un asistente virtual de KIT CONSULTING. Tu objetivo es ayudar a los usuarios a entender el programa de ayudas y guiarlos en el proceso de solicitud. Aquí está la información clave sobre KIT CONSULTING: {COMPANY_INFO}"
+                "content": f"Eres el asistente virtual de Navegatel, especializado en el programa KIT CONSULTING. Tu objetivo es ayudar a los usuarios a entender el programa de ayudas y guiarlos en el proceso de solicitud. Aquí está la información clave: {COMPANY_INFO}"
             }
         ]
 
@@ -101,11 +101,13 @@ def get_chat_response(user_message, conversation_history=None):
         # Get response from OpenAI with timeout handling
         try:
             response = openai.ChatCompletion.create(
-                model="ft:gpt-3.5-turbo-0125:personal::AO2C9xih",
+                model="gpt-3.5-turbo",
                 messages=messages,
                 max_tokens=500,
                 temperature=0.7,
                 top_p=0.9,
+                presence_penalty=0.6,
+                frequency_penalty=0.3,
                 request_timeout=30
             )
             logger.info("Successfully received response from OpenAI")

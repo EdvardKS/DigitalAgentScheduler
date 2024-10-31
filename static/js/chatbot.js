@@ -3,7 +3,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const initChatbot = () => {
         try {
-            // DOM Elements with detailed error logging
             const elements = {
                 chatToggle: document.querySelector('.chat-toggle'),
                 chatBody: document.querySelector('.chat-body'),
@@ -13,7 +12,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 chatClose: document.querySelector('.chat-close')
             };
 
-            // Validate all required elements
             Object.entries(elements).forEach(([key, element]) => {
                 console.log(`Element '${key}' found:`, !!element);
                 if (!element) {
@@ -21,14 +19,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             });
 
-            // State management
             let conversationHistory = [];
             let isProcessing = false;
             let retryCount = 0;
             const MAX_RETRIES = 3;
             const RETRY_DELAY = 2000;
 
-            // Error handling utilities
             const showError = (message, isTemporary = true) => {
                 const errorDiv = document.createElement('div');
                 errorDiv.className = 'chat-message system-message error-message';
@@ -43,7 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Retry logic with exponential backoff
             const retry = async (fn, retryCount) => {
                 try {
                     return await fn();
@@ -58,7 +53,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Send message function with enhanced error handling
             const sendMessage = async (message, isUser = true) => {
                 console.log(`Sending message (${isUser ? 'user' : 'bot'}):`, message);
                 try {
@@ -105,7 +99,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                             console.log('API response received:', response);
                             await sendMessage(response.response, false);
-                            retryCount = 0; // Reset retry count on success
+                            retryCount = 0;
 
                         } catch (error) {
                             console.error('API request error:', error);
@@ -130,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Message handler with improved validation
             const handleMessageSend = async () => {
                 if (isProcessing) {
                     console.log('Message processing in progress, skipping...');
@@ -161,31 +154,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Event Listeners with error boundaries
             const setupEventListeners = () => {
                 try {
-                    // Toggle chat window
                     elements.chatToggle.addEventListener('click', () => {
                         console.log('Chat toggle clicked');
                         elements.chatBody.style.display = elements.chatBody.style.display === 'none' ? 'flex' : 'none';
                         if (elements.chatBody.style.display === 'flex' && conversationHistory.length === 0) {
-                            sendMessage('¡Hola! Soy el asistente virtual de KIT CONSULTING. ¿En qué puedo ayudarte a entender nuestro programa de ayudas?', false);
+                            sendMessage('¡Hola! Soy el asistente virtual de Navegatel. ¿En qué puedo ayudarte a entender nuestro programa de KIT CONSULTING?', false);
                         }
                     });
 
-                    // Close chat window
                     elements.chatClose.addEventListener('click', () => {
                         console.log('Chat close clicked');
                         elements.chatBody.style.display = 'none';
                     });
 
-                    // Send message button
                     elements.sendButton.addEventListener('click', (e) => {
                         e.preventDefault();
                         handleMessageSend();
                     });
 
-                    // Send message on Enter
                     elements.chatInput.addEventListener('keypress', (e) => {
                         if (e.key === 'Enter' && !e.shiftKey) {
                             e.preventDefault();
@@ -193,7 +181,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         }
                     });
 
-                    // Network status monitoring
                     window.addEventListener('online', () => {
                         showError('¡Conexión restaurada!', true);
                     });
@@ -202,7 +189,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         showError('Sin conexión a internet. Los mensajes se enviarán cuando se restaure la conexión.');
                     });
 
-                    // Initialize UI state
                     elements.chatBody.style.display = 'none';
                     elements.chatToggle.style.display = 'flex';
 
@@ -212,7 +198,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            // Initialize event listeners
             setupEventListeners();
             console.log('Chatbot initialization completed successfully');
 
@@ -221,7 +206,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Initialize chatbot with error boundary
     try {
         initChatbot();
     } catch (error) {
