@@ -4,11 +4,15 @@ from datetime import datetime
 import logging
 from models import db, Appointment
 from email_utils import send_appointment_confirmation, schedule_reminder_email
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Set up logging and OpenAI configuration
 logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
-openai.api_key = os.environ.get('OPENAI_API_KEY')
+openai.api_key = os.getenv('OPENAI_API_KEY')
 
 # Metrics tracking
 metrics = {
@@ -43,8 +47,7 @@ IMPORTANTE:
 - Responde solo ha preguntas relacionadas con el KIT CONSULTING, Navegatel o KIT DIGITAL.
 - Somos especialistas en Inteligencia Artificial, Ventas Digitales y Estrategia y Rendimiento de Negocio.
 - Guía al usuario para que elija IA y que coja una cita utilizando este mismo CHATBOT.
-- El contacto de navegatel es 
-
+- El contacto de navegatel es info@navegatel.org y teléfono 673 66 09 10
 """
 
 def get_chat_response(user_message, conversation_history=None):

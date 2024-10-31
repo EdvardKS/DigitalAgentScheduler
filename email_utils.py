@@ -4,6 +4,10 @@ from datetime import datetime, timedelta
 import os
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 mail = Mail()
 scheduler = BackgroundScheduler()
@@ -12,7 +16,7 @@ scheduler.start()
 def send_appointment_confirmation(appointment):
     """Send confirmation email for a new appointment"""
     msg = Message(
-        f'{os.environ.get("APP_NAME", "AI Engineering Consultancy")} - Appointment Confirmation',
+        f'{os.getenv("APP_NAME", "AI Engineering Consultancy")} - Appointment Confirmation',
         sender=current_app.config['MAIL_USERNAME'],
         recipients=[appointment.email]
     )
@@ -40,7 +44,7 @@ def send_appointment_confirmation(appointment):
 def send_appointment_reminder(appointment):
     """Send reminder email for an upcoming appointment"""
     msg = Message(
-        f'{os.environ.get("APP_NAME", "AI Engineering Consultancy")} - Appointment Reminder',
+        f'{os.getenv("APP_NAME", "AI Engineering Consultancy")} - Appointment Reminder',
         sender=current_app.config['MAIL_USERNAME'],
         recipients=[appointment.email]
     )
