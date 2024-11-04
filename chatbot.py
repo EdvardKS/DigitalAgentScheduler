@@ -1,10 +1,9 @@
 import os
 import openai
-from datetime import datetime, timedelta
+from datetime import datetime
 import logging
 from models import db, Appointment
 from email_utils import send_appointment_confirmation, schedule_reminder_email
-from appointments import AppointmentManager
 from dotenv import load_dotenv
 
 # Load environment variables
@@ -23,278 +22,7 @@ if not openai.api_key:
     logger.error("OpenAI API key not found in environment variables")
     raise ValueError("OpenAI API key is required")
 
-# Appointment booking states
-APPOINTMENT_STATES = {
-    'IDLE': 0,
-    'COLLECTING_NAME': 1,
-    'COLLECTING_EMAIL': 2,
-    'SELECTING_SERVICE': 3,
-    'SELECTING_DATE': 4,
-    'SELECTING_TIME': 5,
-    'CONFIRMING': 6
-}
-
-class AppointmentSession:
-    def __init__(self):
-        self.state = APPOINTMENT_STATES['IDLE']
-        self.data = {
-            'name': None,
-            'email': None,
-            'service': None,
-            'date': None,
-            'time': None
-        }
-        self.available_dates = []
-        self.available_times = []
-
-# Conversation session storage
-appointment_sessions = {}
-
-def format_date(date_str):
-    """Format date in a more readable way"""
-    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
-    return date_obj.strftime("%d de %B de %Y")
-
-def format_time(time_str):
-    """Format time in 24-hour format"""
-    return time_str
-
-def get_chat_response(user_message, conversation_history=None):
-    """Generate a response using OpenAI's ChatGPT with appointment booking logic"""
-    try:
-        logger.info(f"Processing chat request - Message length: {len(user_message)}")
-        
-        if not user_message.strip():
-            logger.warning("Empty message received")
-            return "Por favor, escribe tu pregunta para poder ayudarte."
-
-        # Initialize session if not exists
-        session_id = "default"  # In production, use actual session ID
-        if session_id not in appointment_sessions and any(keyword in user_message.lower() for keyword in ["cita", "appointment", "reservar", "agendar"]):
-            appointment_sessions[session_id] = AppointmentSession()
-
-        # Handle appointment booking flow
-        if session_id in appointment_sessions:
-            session = appointment_sessions[session_id]
-            response = handle_appointment_flow(user_message, session)
-            if response:
-                return response
-
-        # Prepare the conversation with system context
-        messages = [
-            {
-                "role": "system",
-                "content": f"""Eres el asistente virtual de KIT CONSULTING, especializado en servicios de consultoría en IA. 
-                Si el usuario menciona que quiere agendar una cita o consultoría, inicia el proceso de reserva.
-                Información del programa: {COMPANY_INFO}"""
-            }
-        ]
-
-        # Add conversation history
-        if conversation_history:
-            for msg in conversation_history:
-                messages.append({
-                    "role": "user" if msg["is_user"] else "assistant",
-                    "content": msg["text"]
-                })
-
-        # Add the current message
-        messages.append({"role": "user", "content": user_message})
-
-        # Get response from OpenAI
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=messages,
-            max_tokens=500,
-            temperature=0.7,
-            top_p=0.9
-        )
-        logger.info("Successfully received response from OpenAI")
-        return response.choices[0].message["content"]
-
-    except Exception as e:
-        logger.error(f"Error in get_chat_response: {str(e)}", exc_info=True)
-        return "Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo."
-
-def handle_appointment_flow(message, session):
-    """Handle the step-by-step appointment booking process with enhanced validation"""
-    try:
-        if session.state == APPOINTMENT_STATES['COLLECTING_NAME']:
-            is_valid, error_msg = AppointmentManager.validate_name(message)
-            if is_valid:
-                session.data['name'] = message
-                session.state = APPOINTMENT_STATES['COLLECTING_EMAIL']
-                return "Gracias por proporcionar tu nombre. Por favor, introduce tu correo electrónico para enviarte la confirmación:"
-            return f"Lo siento, el nombre proporcionado no es válido: {error_msg}. Por favor, introduce tu nombre completo:"
-
-        elif session.state == APPOINTMENT_STATES['COLLECTING_EMAIL']:
-            is_valid, error_msg = AppointmentManager.validate_email(message)
-            if is_valid:
-                session.data['email'] = message
-                session.state = APPOINTMENT_STATES['SELECTING_SERVICE']
-                return """¿Qué tipo de servicio te interesa?
-                
-1. Consultoría en Inteligencia Artificial
-2. Ventas Digitales
-3. Estrategia y Rendimiento de Negocio
-
-Por favor, selecciona el número del servicio deseado:"""
-            return f"El correo electrónico no es válido: {error_msg}. Por favor, introduce un correo electrónico válido:"
-
-        elif session.state == APPOINTMENT_STATES['SELECTING_SERVICE']:
-            service_map = {
-                "1": "AI Consulting",
-                "2": "Digital Sales",
-                "3": "Business Strategy"
-            }
-            selected_service = service_map.get(message.strip())
-            if selected_service:
-                session.data['service'] = selected_service
-                session.state = APPOINTMENT_STATES['SELECTING_DATE']
-                # Get next 7 available weekdays
-                available_dates = []
-                current_date = datetime.now().date()
-                days_ahead = 0
-                while len(available_dates) < 7:
-                    check_date = current_date + timedelta(days=days_ahead)
-                    if check_date.weekday() < 5:  # Monday to Friday
-                        available_dates.append(check_date.strftime("%Y-%m-%d"))
-                    days_ahead += 1
-                session.available_dates = available_dates
-                dates_display = "\n".join([f"{i+1}. {format_date(date)}" for i, date in enumerate(available_dates)])
-                return f"""Por favor, selecciona una fecha disponible (indica el número):
-
-{dates_display}"""
-            return "Por favor, selecciona un número válido (1, 2 o 3) para el servicio deseado:"
-
-        elif session.state == APPOINTMENT_STATES['SELECTING_DATE']:
-            try:
-                selection = int(message.strip()) - 1
-                if 0 <= selection < len(session.available_dates):
-                    selected_date = session.available_dates[selection]
-                    session.data['date'] = selected_date
-                    available_slots = AppointmentManager.get_available_slots(selected_date)
-                    if not available_slots:
-                        return "Lo siento, no hay horarios disponibles para esta fecha. Por favor, selecciona otra fecha:"
-                    session.available_times = available_slots
-                    session.state = APPOINTMENT_STATES['SELECTING_TIME']
-                    times_display = "\n".join([f"{i+1}. {format_time(time)}" for i, time in enumerate(available_slots)])
-                    return f"""Horarios disponibles para el {format_date(selected_date)} (indica el número):
-
-{times_display}"""
-                return f"Por favor, selecciona un número válido entre 1 y {len(session.available_dates)}:"
-            except ValueError:
-                return "Por favor, introduce un número válido para seleccionar la fecha:"
-
-        elif session.state == APPOINTMENT_STATES['SELECTING_TIME']:
-            try:
-                selection = int(message.strip()) - 1
-                if 0 <= selection < len(session.available_times):
-                    selected_time = session.available_times[selection]
-                    session.data['time'] = selected_time
-                    session.state = APPOINTMENT_STATES['CONFIRMING']
-                    return f"""Por favor, confirma los detalles de tu cita:
-
-📅 Fecha: {format_date(session.data['date'])}
-⏰ Hora: {format_time(session.data['time'])}
-👤 Nombre: {session.data['name']}
-📧 Email: {session.data['email']}
-💼 Servicio: {session.data['service']}
-
-¿Deseas confirmar esta cita? (Responde 'Sí' o 'No')"""
-                return f"Por favor, selecciona un número válido entre 1 y {len(session.available_times)}:"
-            except ValueError:
-                return "Por favor, introduce un número válido para seleccionar el horario:"
-
-        elif session.state == APPOINTMENT_STATES['CONFIRMING']:
-            if message.lower() in ['si', 'sí', 'yes', 's', 'y']:
-                success, message, appointment = AppointmentManager.create_appointment(session.data)
-                if success:
-                    appointment_sessions.pop("default")
-                    return """¡Tu cita ha sido confirmada! 
-                    
-Te hemos enviado un correo electrónico con los detalles de la cita y las instrucciones. ¿Hay algo más en lo que pueda ayudarte?"""
-                return f"Lo siento, ha ocurrido un error al crear la cita: {message}. Por favor, intenta de nuevo más tarde."
-            elif message.lower() in ['no', 'n']:
-                appointment_sessions.pop("default")
-                return "Cita cancelada. ¿Hay algo más en lo que pueda ayudarte?"
-            return "Por favor, responde 'Sí' o 'No' para confirmar la cita."
-
-        elif any(keyword in message.lower() for keyword in ["cita", "appointment", "reservar", "agendar"]):
-            session.state = APPOINTMENT_STATES['COLLECTING_NAME']
-            return """¡Con gusto te ayudo a agendar una cita! Para comenzar, por favor proporciona tu nombre completo:"""
-
-        return None
-
-    except Exception as e:
-        logger.error(f"Error in handle_appointment_flow: {str(e)}", exc_info=True)
-        return "Lo siento, ha ocurrido un error en el proceso de reserva. Por favor, intenta de nuevo."
-
-def get_available_dates():
-    """Get available dates for the next 7 days"""
-    dates = []
-    current_date = datetime.now().date()
-    for i in range(7):
-        check_date = current_date + timedelta(days=i)
-        if check_date.weekday() < 5:  # Monday to Friday
-            dates.append(check_date.strftime("%Y-%m-%d"))
-    return "\n".join(dates)
-
-# Company information
-COMPANY_INFO = """
-KIT CONSULTING es un programa especializado en asesoría digital y transformación tecnológica. Ofrecemos servicios de consultoría en:
-
-1. Inteligencia Artificial (hasta 6.000€)
-- Implementación de soluciones IA
-- Automatización de procesos
-- Análisis predictivo
-
-2. Ventas Digitales (hasta 6.000€)
-- Estrategias de e-commerce
-- Marketing digital
-- Optimización de conversión
-
-3. Estrategia de Negocio (hasta 6.000€)
-- Transformación digital
-- Análisis de rendimiento
-- Optimización de procesos
-
-Beneficios por segmento:
-- Pequeñas empresas (10-49 empleados): 12.000€
-- Medianas empresas (50-99 empleados): 18.000€
-- Grandes PYMEs (100-249 empleados): 24.000€
-
-Horario de atención:
-- Lunes a Viernes
-- 10:30 AM a 2:00 PM
-
-Para más información:
-- Email: info@navegatel.org
-- Teléfono: 673 66 09 10
-"""
-
-def update_metrics(start_time, success):
-    """Update chatbot performance metrics"""
-    end_time = datetime.now()
-    response_time = (end_time - start_time).total_seconds() * 1000
-    
-    metrics["total_queries"] += 1
-    if success:
-        metrics["successful_queries"] += 1
-    else:
-        metrics["failed_queries"] += 1
-    
-    metrics["response_times"].append(response_time)
-    
-    # Update daily stats
-    today = end_time.date().isoformat()
-    if today not in metrics["daily_stats"]:
-        metrics["daily_stats"][today] = {"total": 0, "successful": 0}
-    metrics["daily_stats"][today]["total"] += 1
-    if success:
-        metrics["daily_stats"][today]["successful"] += 1
-
-# Initialize metrics
+# Metrics tracking
 metrics = {
     "total_queries": 0,
     "successful_queries": 0,
@@ -303,3 +31,200 @@ metrics = {
     "daily_stats": {},
     "error_types": {}
 }
+
+# Navegatel and KIT CONSULTING Information
+COMPANY_INFO = """
+Somos Navegatel, una empresa especializada en asesoría digital, expertos en el programa KIT CONSULTING. El KIT CONSULTING es un programa de ayudas del Gobierno de España que permite a pymes diseñar la hoja de ruta para su transformación digital.
+
+Servicios principales:
+1. Inteligencia Artificial - hasta 6.000€
+2. Ventas Digitales - hasta 6.000€
+3. Estrategia y Rendimiento de Negocio - hasta 6.000€
+
+Segmentos de empresas:
+- Segmento A (10-49 empleados): 12.000€
+- Segmento B (50-99 empleados): 18.000€
+- Segmento C (100-249 empleados): 24.000€
+
+Requisitos básicos:
+- Tener domicilio fiscal en territorio español
+- Ser pequeña o mediana empresa
+- Estar inscrito en el censo de empresarios
+- No tener consideración de empresa en crisis
+- Estar al corriente de obligaciones tributarias
+
+IMPORTANTE:
+- Responde solo ha preguntas relacionadas con el KIT CONSULTING o servicios de Navegatel.
+- Somos especialistas en Inteligencia Artificial, Ventas Digitales y Estrategia y Rendimiento de Negocio.
+- Guía al usuario para que elija IA y que coja una cita utilizando este mismo CHATBOT.
+- Para contacto directo: info@navegatel.org o 673 66 09 10
+"""
+
+FALLBACK_RESPONSES = [
+    "Lo siento, estamos experimentando dificultades técnicas. Por favor, intenta de nuevo en unos momentos.",
+    "Disculpa la interrupción. ¿Podrías reformular tu pregunta?",
+    "En este momento no puedo procesar tu solicitud. Para asistencia inmediata, contáctanos en info@navegatel.org o 673 66 09 10.",
+]
+
+def get_fallback_response():
+    """Get a random fallback response"""
+    from random import choice
+    return choice(FALLBACK_RESPONSES)
+
+def get_chat_response(user_message, conversation_history=None):
+    """Generate a response using OpenAI's ChatGPT with enhanced error handling"""
+    try:
+        logger.info(f"Processing chat request - Message length: {len(user_message)}")
+        
+        if not user_message.strip():
+            logger.warning("Empty message received")
+            return "Por favor, escribe tu pregunta para poder ayudarte."
+
+        if conversation_history is None:
+            conversation_history = []
+
+        # Prepare the conversation with system context
+        messages = [
+            {
+                "role": "system",
+                "content": f"Eres el asistente virtual de Navegatel, especializado en el programa KIT CONSULTING. Tu objetivo es ayudar a los usuarios a entender el programa de ayudas y guiarlos en el proceso de solicitud. Aquí está la información clave: {COMPANY_INFO}"
+            }
+        ]
+
+        # Add conversation history
+        for msg in conversation_history:
+            messages.append({"role": "user" if msg["is_user"] else "assistant", "content": msg["text"]})
+
+        # Add the current message
+        messages.append({"role": "user", "content": user_message})
+
+        # Get response from OpenAI with timeout handling
+        try:
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=messages,
+                max_tokens=500,
+                temperature=0.7,
+                top_p=0.9,
+                presence_penalty=0.6,
+                frequency_penalty=0.3,
+                request_timeout=30
+            )
+            logger.info("Successfully received response from OpenAI")
+            return response.choices[0].message["content"]
+
+        except openai.error.Timeout:
+            logger.error("OpenAI API request timed out")
+            return "Lo siento, la respuesta está tardando más de lo esperado. Por favor, intenta de nuevo."
+        
+        except openai.error.APIError as e:
+            logger.error(f"OpenAI API error: {str(e)}")
+            return get_fallback_response()
+        
+        except openai.error.RateLimitError:
+            logger.error("OpenAI API rate limit exceeded")
+            return "Estamos experimentando un alto volumen de consultas. Por favor, intenta de nuevo en unos minutos."
+
+    except Exception as e:
+        logger.error(f"Unexpected error in get_chat_response: {str(e)}", exc_info=True)
+        metrics["error_types"][type(e).__name__] = metrics["error_types"].get(type(e).__name__, 0) + 1
+        return get_fallback_response()
+
+def get_model_metrics():
+    """Get current performance metrics with enhanced error tracking"""
+    try:
+        if not metrics["response_times"]:
+            return {
+                "avg_response_time": 0,
+                "success_rate": 0,
+                "daily_queries": 0,
+                "error_rate": 0,
+                "common_errors": []
+            }
+        
+        avg_response_time = sum(metrics["response_times"]) / len(metrics["response_times"])
+        success_rate = (metrics["successful_queries"] / metrics["total_queries"]) * 100 if metrics["total_queries"] > 0 else 0
+        error_rate = (metrics["failed_queries"] / metrics["total_queries"]) * 100 if metrics["total_queries"] > 0 else 0
+        
+        today = datetime.now().strftime("%Y-%m-%d")
+        daily_queries = metrics["daily_stats"].get(today, {}).get("queries", 0)
+        
+        # Get top 3 most common errors
+        common_errors = sorted(
+            metrics["error_types"].items(),
+            key=lambda x: x[1],
+            reverse=True
+        )[:3]
+        
+        return {
+            "avg_response_time": round(avg_response_time, 2),
+            "success_rate": round(success_rate, 2),
+            "error_rate": round(error_rate, 2),
+            "daily_queries": daily_queries,
+            "common_errors": common_errors
+        }
+    except Exception as e:
+        logger.error(f"Error getting metrics: {str(e)}", exc_info=True)
+        return {
+            "error": "Error retrieving metrics",
+            "details": str(e)
+        }
+
+def update_metrics(start_time, success):
+    """Update performance metrics with error tracking"""
+    try:
+        end_time = datetime.now()
+        response_time = (end_time - start_time).total_seconds() * 1000
+        
+        metrics["total_queries"] += 1
+        if success:
+            metrics["successful_queries"] += 1
+        else:
+            metrics["failed_queries"] += 1
+        
+        metrics["response_times"].append(response_time)
+        
+        today = end_time.strftime("%Y-%m-%d")
+        if today not in metrics["daily_stats"]:
+            metrics["daily_stats"][today] = {
+                "queries": 0,
+                "successful": 0,
+                "failed": 0,
+                "avg_response_time": 0
+            }
+        
+        daily_stats = metrics["daily_stats"][today]
+        daily_stats["queries"] += 1
+        if success:
+            daily_stats["successful"] += 1
+        else:
+            daily_stats["failed"] += 1
+            
+        daily_stats["avg_response_time"] = (
+            (daily_stats["avg_response_time"] * (daily_stats["queries"] - 1) + response_time)
+            / daily_stats["queries"]
+        )
+    except Exception as e:
+        logger.error(f"Error updating metrics: {str(e)}", exc_info=True)
+
+def generate_response(message, conversation_history=None):
+    """Generate chatbot response with comprehensive error handling"""
+    start_time = datetime.now()
+    success = False
+    
+    try:
+        if not message.strip():
+            logger.warning("Empty message received in generate_response")
+            return "Por favor, escribe tu pregunta para poder ayudarte."
+            
+        response = get_chat_response(message, conversation_history)
+        success = True
+        return response
+        
+    except Exception as e:
+        logger.error(f"Error in generate_response: {str(e)}", exc_info=True)
+        metrics["error_types"][type(e).__name__] = metrics["error_types"].get(type(e).__name__, 0) + 1
+        return get_fallback_response()
+    
+    finally:
+        update_metrics(start_time, success)

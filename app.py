@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime, time, timedelta
-from chatbot import get_chat_response
+from chatbot import generate_response, get_model_metrics
 from functools import wraps
 from flask_mail import Mail
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email
@@ -9,7 +9,6 @@ from models import db, Appointment
 from sqlalchemy import func
 import logging
 from dotenv import load_dotenv
-from appointments import AppointmentManager
 
 # Load environment variables
 load_dotenv()
@@ -66,11 +65,6 @@ def check_rate_limit(ip):
 def index():
     return render_template('index.html')
 
-@app.route('/appointment')
-def appointment():
-    """Route for appointment booking page"""
-    return render_template('appointment.html')
-
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot_response():
     """Endpoint for chatbot interactions with enhanced error handling"""
@@ -116,7 +110,7 @@ def chatbot_response():
         logger.info(f"Processing chatbot request - IP: {client_ip}, Message length: {len(message)}")
         
         try:
-            response = get_chat_response(message, conversation_history)
+            response = generate_response(message, conversation_history)
             return jsonify({"response": response})
             
         except Exception as e:
@@ -132,50 +126,6 @@ def chatbot_response():
             "error": "Ha ocurrido un error inesperado.",
             "details": "An unexpected error occurred while processing the request"
         }), 500
-
-@app.route('/api/book-appointment', methods=['POST'])
-def book_appointment():
-    """Endpoint for booking appointments"""
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        success, message, appointment = AppointmentManager.create_appointment(data)
-        
-        if success:
-            return jsonify({
-                "message": message,
-                "appointment_id": appointment.id
-            }), 201
-        else:
-            return jsonify({"error": message}), 400
-
-    except Exception as e:
-        logger.error(f"Error booking appointment: {str(e)}", exc_info=True)
-        return jsonify({"error": "Internal server error"}), 500
-
-@app.route('/api/available-slots/<date>', methods=['GET'])
-def get_available_slots(date):
-    """Get available appointment slots for a given date"""
-    try:
-        slots = AppointmentManager.get_available_slots(date)
-        return jsonify({"slots": slots})
-    except Exception as e:
-        logger.error(f"Error getting available slots: {str(e)}", exc_info=True)
-        return jsonify({"error": "Error retrieving available slots"}), 500
-
-@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
-def cancel_appointment(appointment_id):
-    """Cancel an existing appointment"""
-    try:
-        success, message = AppointmentManager.cancel_appointment(appointment_id)
-        if success:
-            return jsonify({"message": message}), 200
-        return jsonify({"error": message}), 400
-    except Exception as e:
-        logger.error(f"Error cancelling appointment: {str(e)}", exc_info=True)
-        return jsonify({"error": "Error cancelling appointment"}), 500
 
 if __name__ == "__main__":
     with app.app_context():
