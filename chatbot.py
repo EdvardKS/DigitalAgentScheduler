@@ -28,13 +28,11 @@ APPOINTMENT_STATES = {
     'IDLE': 0,
     'COLLECTING_NAME': 1,
     'COLLECTING_EMAIL': 2,
-    'SELECTING_DATE': 3,
-    'SELECTING_TIME': 4,
-    'CONFIRMING': 5
+    'SELECTING_SERVICE': 3,
+    'SELECTING_DATE': 4,
+    'SELECTING_TIME': 5,
+    'CONFIRMING': 6
 }
-
-# Conversation session storage
-appointment_sessions = {}
 
 class AppointmentSession:
     def __init__(self):
@@ -42,10 +40,24 @@ class AppointmentSession:
         self.data = {
             'name': None,
             'email': None,
+            'service': None,
             'date': None,
-            'time': None,
-            'service': 'AI Consulting'  # Default service
+            'time': None
         }
+        self.available_dates = []
+        self.available_times = []
+
+# Conversation session storage
+appointment_sessions = {}
+
+def format_date(date_str):
+    """Format date in a more readable way"""
+    date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+    return date_obj.strftime("%d de %B de %Y")
+
+def format_time(time_str):
+    """Format time in 24-hour format"""
+    return time_str
 
 def get_chat_response(user_message, conversation_history=None):
     """Generate a response using OpenAI's ChatGPT with appointment booking logic"""
@@ -58,7 +70,7 @@ def get_chat_response(user_message, conversation_history=None):
 
         # Initialize session if not exists
         session_id = "default"  # In production, use actual session ID
-        if session_id not in appointment_sessions and ("cita" in user_message.lower() or "appointment" in user_message.lower()):
+        if session_id not in appointment_sessions and any(keyword in user_message.lower() for keyword in ["cita", "appointment", "reservar", "agendar"]):
             appointment_sessions[session_id] = AppointmentSession()
 
         # Handle appointment booking flow
@@ -72,8 +84,8 @@ def get_chat_response(user_message, conversation_history=None):
         messages = [
             {
                 "role": "system",
-                "content": f"""Eres el asistente virtual de Navegatel, especializado en el programa KIT CONSULTING. 
-                Si el usuario menciona que quiere agendar una cita o consultoría, inicia el proceso de reserva preguntando su nombre.
+                "content": f"""Eres el asistente virtual de KIT CONSULTING, especializado en servicios de consultoría en IA. 
+                Si el usuario menciona que quiere agendar una cita o consultoría, inicia el proceso de reserva.
                 Información del programa: {COMPANY_INFO}"""
             }
         ]
@@ -81,7 +93,10 @@ def get_chat_response(user_message, conversation_history=None):
         # Add conversation history
         if conversation_history:
             for msg in conversation_history:
-                messages.append({"role": "user" if msg["is_user"] else "assistant", "content": msg["text"]})
+                messages.append({
+                    "role": "user" if msg["is_user"] else "assistant",
+                    "content": msg["text"]
+                })
 
         # Add the current message
         messages.append({"role": "user", "content": user_message})
@@ -102,70 +117,112 @@ def get_chat_response(user_message, conversation_history=None):
         return "Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo."
 
 def handle_appointment_flow(message, session):
-    """Handle the step-by-step appointment booking process"""
+    """Handle the step-by-step appointment booking process with enhanced validation"""
     try:
         if session.state == APPOINTMENT_STATES['COLLECTING_NAME']:
             is_valid, error_msg = AppointmentManager.validate_name(message)
             if is_valid:
                 session.data['name'] = message
                 session.state = APPOINTMENT_STATES['COLLECTING_EMAIL']
-                return "Gracias. Ahora, por favor proporciona tu correo electrónico para las confirmaciones:"
-            return f"El nombre no es válido: {error_msg}. Por favor, intenta de nuevo:"
+                return "Gracias por proporcionar tu nombre. Por favor, introduce tu correo electrónico para enviarte la confirmación:"
+            return f"Lo siento, el nombre proporcionado no es válido: {error_msg}. Por favor, introduce tu nombre completo:"
 
         elif session.state == APPOINTMENT_STATES['COLLECTING_EMAIL']:
             is_valid, error_msg = AppointmentManager.validate_email(message)
             if is_valid:
                 session.data['email'] = message
+                session.state = APPOINTMENT_STATES['SELECTING_SERVICE']
+                return """¿Qué tipo de servicio te interesa?
+                
+1. Consultoría en Inteligencia Artificial
+2. Ventas Digitales
+3. Estrategia y Rendimiento de Negocio
+
+Por favor, selecciona el número del servicio deseado:"""
+            return f"El correo electrónico no es válido: {error_msg}. Por favor, introduce un correo electrónico válido:"
+
+        elif session.state == APPOINTMENT_STATES['SELECTING_SERVICE']:
+            service_map = {
+                "1": "AI Consulting",
+                "2": "Digital Sales",
+                "3": "Business Strategy"
+            }
+            selected_service = service_map.get(message.strip())
+            if selected_service:
+                session.data['service'] = selected_service
                 session.state = APPOINTMENT_STATES['SELECTING_DATE']
-                # Show available dates for next 7 days
-                available_dates = get_available_dates()
-                return f"Gracias. Estas son las fechas disponibles en los próximos 7 días:\n{available_dates}\nPor favor, selecciona una fecha (YYYY-MM-DD):"
-            return f"El correo electrónico no es válido: {error_msg}. Por favor, intenta de nuevo:"
+                # Get next 7 available weekdays
+                available_dates = []
+                current_date = datetime.now().date()
+                days_ahead = 0
+                while len(available_dates) < 7:
+                    check_date = current_date + timedelta(days=days_ahead)
+                    if check_date.weekday() < 5:  # Monday to Friday
+                        available_dates.append(check_date.strftime("%Y-%m-%d"))
+                    days_ahead += 1
+                session.available_dates = available_dates
+                dates_display = "\n".join([f"{i+1}. {format_date(date)}" for i, date in enumerate(available_dates)])
+                return f"""Por favor, selecciona una fecha disponible (indica el número):
+
+{dates_display}"""
+            return "Por favor, selecciona un número válido (1, 2 o 3) para el servicio deseado:"
 
         elif session.state == APPOINTMENT_STATES['SELECTING_DATE']:
-            is_valid, error_msg = AppointmentManager.validate_date(message)
-            if is_valid:
-                session.data['date'] = message
-                available_slots = AppointmentManager.get_available_slots(message)
-                if not available_slots:
-                    return "No hay horarios disponibles para esta fecha. Por favor, selecciona otra fecha:"
-                session.state = APPOINTMENT_STATES['SELECTING_TIME']
-                slots_str = "\n".join(available_slots)
-                return f"Horarios disponibles:\n{slots_str}\nPor favor, selecciona un horario (HH:MM):"
-            return f"La fecha no es válida: {error_msg}. Por favor, intenta de nuevo:"
+            try:
+                selection = int(message.strip()) - 1
+                if 0 <= selection < len(session.available_dates):
+                    selected_date = session.available_dates[selection]
+                    session.data['date'] = selected_date
+                    available_slots = AppointmentManager.get_available_slots(selected_date)
+                    if not available_slots:
+                        return "Lo siento, no hay horarios disponibles para esta fecha. Por favor, selecciona otra fecha:"
+                    session.available_times = available_slots
+                    session.state = APPOINTMENT_STATES['SELECTING_TIME']
+                    times_display = "\n".join([f"{i+1}. {format_time(time)}" for i, time in enumerate(available_slots)])
+                    return f"""Horarios disponibles para el {format_date(selected_date)} (indica el número):
+
+{times_display}"""
+                return f"Por favor, selecciona un número válido entre 1 y {len(session.available_dates)}:"
+            except ValueError:
+                return "Por favor, introduce un número válido para seleccionar la fecha:"
 
         elif session.state == APPOINTMENT_STATES['SELECTING_TIME']:
-            is_valid, error_msg = AppointmentManager.validate_time(message)
-            if is_valid:
-                session.data['time'] = message
-                session.state = APPOINTMENT_STATES['CONFIRMING']
-                return f"""Por favor, confirma los detalles de tu cita:
-                Nombre: {session.data['name']}
-                Email: {session.data['email']}
-                Fecha: {session.data['date']}
-                Hora: {session.data['time']}
-                Servicio: {session.data['service']}
-                
-                ¿Deseas confirmar esta cita? (Sí/No)"""
-            return f"El horario no es válido: {error_msg}. Por favor, intenta de nuevo:"
+            try:
+                selection = int(message.strip()) - 1
+                if 0 <= selection < len(session.available_times):
+                    selected_time = session.available_times[selection]
+                    session.data['time'] = selected_time
+                    session.state = APPOINTMENT_STATES['CONFIRMING']
+                    return f"""Por favor, confirma los detalles de tu cita:
+
+📅 Fecha: {format_date(session.data['date'])}
+⏰ Hora: {format_time(session.data['time'])}
+👤 Nombre: {session.data['name']}
+📧 Email: {session.data['email']}
+💼 Servicio: {session.data['service']}
+
+¿Deseas confirmar esta cita? (Responde 'Sí' o 'No')"""
+                return f"Por favor, selecciona un número válido entre 1 y {len(session.available_times)}:"
+            except ValueError:
+                return "Por favor, introduce un número válido para seleccionar el horario:"
 
         elif session.state == APPOINTMENT_STATES['CONFIRMING']:
             if message.lower() in ['si', 'sí', 'yes', 's', 'y']:
                 success, message, appointment = AppointmentManager.create_appointment(session.data)
                 if success:
-                    # Clear session
                     appointment_sessions.pop("default")
-                    return "¡Tu cita ha sido confirmada! Te hemos enviado un correo electrónico con los detalles."
-                return f"Error al crear la cita: {message}. Por favor, intenta de nuevo más tarde."
+                    return """¡Tu cita ha sido confirmada! 
+                    
+Te hemos enviado un correo electrónico con los detalles de la cita y las instrucciones. ¿Hay algo más en lo que pueda ayudarte?"""
+                return f"Lo siento, ha ocurrido un error al crear la cita: {message}. Por favor, intenta de nuevo más tarde."
             elif message.lower() in ['no', 'n']:
-                # Clear session
                 appointment_sessions.pop("default")
                 return "Cita cancelada. ¿Hay algo más en lo que pueda ayudarte?"
             return "Por favor, responde 'Sí' o 'No' para confirmar la cita."
 
-        elif "cita" in message.lower() or "appointment" in message.lower():
+        elif any(keyword in message.lower() for keyword in ["cita", "appointment", "reservar", "agendar"]):
             session.state = APPOINTMENT_STATES['COLLECTING_NAME']
-            return "Por favor, proporciona tu nombre completo:"
+            return """¡Con gusto te ayudo a agendar una cita! Para comenzar, por favor proporciona tu nombre completo:"""
 
         return None
 
@@ -183,7 +240,61 @@ def get_available_dates():
             dates.append(check_date.strftime("%Y-%m-%d"))
     return "\n".join(dates)
 
-# Metrics tracking (unchanged)
+# Company information
+COMPANY_INFO = """
+KIT CONSULTING es un programa especializado en asesoría digital y transformación tecnológica. Ofrecemos servicios de consultoría en:
+
+1. Inteligencia Artificial (hasta 6.000€)
+- Implementación de soluciones IA
+- Automatización de procesos
+- Análisis predictivo
+
+2. Ventas Digitales (hasta 6.000€)
+- Estrategias de e-commerce
+- Marketing digital
+- Optimización de conversión
+
+3. Estrategia de Negocio (hasta 6.000€)
+- Transformación digital
+- Análisis de rendimiento
+- Optimización de procesos
+
+Beneficios por segmento:
+- Pequeñas empresas (10-49 empleados): 12.000€
+- Medianas empresas (50-99 empleados): 18.000€
+- Grandes PYMEs (100-249 empleados): 24.000€
+
+Horario de atención:
+- Lunes a Viernes
+- 10:30 AM a 2:00 PM
+
+Para más información:
+- Email: info@navegatel.org
+- Teléfono: 673 66 09 10
+"""
+
+def update_metrics(start_time, success):
+    """Update chatbot performance metrics"""
+    end_time = datetime.now()
+    response_time = (end_time - start_time).total_seconds() * 1000
+    
+    metrics["total_queries"] += 1
+    if success:
+        metrics["successful_queries"] += 1
+    else:
+        metrics["failed_queries"] += 1
+    
+    metrics["response_times"].append(response_time)
+    
+    # Update daily stats
+    today = end_time.date().isoformat()
+    if today not in metrics["daily_stats"]:
+        metrics["daily_stats"][today] = {"total": 0, "successful": 0}
+    metrics["daily_stats"][today]["total"] += 1
+    if success:
+        metrics["daily_stats"][today]["successful"] += 1
+
+# Initialize metrics
 metrics = {
     "total_queries": 0,
     "successful_queries": 0,
@@ -192,53 +303,3 @@ metrics = {
     "daily_stats": {},
     "error_types": {}
 }
-
-# Company information (unchanged)
-COMPANY_INFO = """
-Somos Navegatel, una empresa especializada en asesoría digital, expertos en el programa KIT CONSULTING. El KIT CONSULTING es un programa de ayudas del Gobierno de España que permite a pymes diseñar la hoja de ruta para su transformación digital.
-
-Servicios principales:
-1. Inteligencia Artificial - hasta 6.000€
-2. Ventas Digitales - hasta 6.000€
-3. Estrategia y Rendimiento de Negocio - hasta 6.000€
-
-Segmentos de empresas:
-- Segmento A (10-49 empleados): 12.000€
-- Segmento B (50-99 empleados): 18.000€
-- Segmento C (100-249 empleados): 24.000€
-
-Requisitos básicos:
-- Tener domicilio fiscal en territorio español
-- Ser pequeña o mediana empresa
-- Estar inscrito en el censo de empresarios
-- No tener consideración de empresa en crisis
-- Estar al corriente de obligaciones tributarias
-
-IMPORTANTE:
-- Responde solo ha preguntas relacionadas con el KIT CONSULTING o servicios de Navegatel.
-- Somos especialistas en Inteligencia Artificial, Ventas Digitales y Estrategia y Rendimiento de Negocio.
-- Guía al usuario para que elija IA y que coja una cita utilizando este mismo CHATBOT.
-- Para contacto directo: info@navegatel.org o 673 66 09 10
-"""
-
-def generate_response(message, conversation_history=None):
-    """Generate chatbot response with comprehensive error handling"""
-    start_time = datetime.now()
-    success = False
-    
-    try:
-        if not message.strip():
-            logger.warning("Empty message received in generate_response")
-            return "Por favor, escribe tu pregunta para poder ayudarte."
-            
-        response = get_chat_response(message, conversation_history)
-        success = True
-        return response
-        
-    except Exception as e:
-        logger.error(f"Error in generate_response: {str(e)}", exc_info=True)
-        metrics["error_types"][type(e).__name__] = metrics["error_types"].get(type(e).__name__, 0) + 1
-        return "Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo."
-    
-    finally:
-        update_metrics(start_time, success)

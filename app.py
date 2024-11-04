@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime, time, timedelta
-from chatbot import generate_response
+from chatbot import get_chat_response
 from functools import wraps
 from flask_mail import Mail
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email
@@ -116,7 +116,7 @@ def chatbot_response():
         logger.info(f"Processing chatbot request - IP: {client_ip}, Message length: {len(message)}")
         
         try:
-            response = generate_response(message, conversation_history)
+            response = get_chat_response(message, conversation_history)
             return jsonify({"response": response})
             
         except Exception as e:
