@@ -39,15 +39,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
-            const showTypingIndicator = () => {
-                const typingDiv = document.createElement('div');
-                typingDiv.className = 'chat-message bot-message typing-indicator';
-                typingDiv.innerHTML = '<div class="message-content"><span>.</span><span>.</span><span>.</span></div>';
-                elements.chatMessages.appendChild(typingDiv);
-                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
-                return typingDiv;
-            };
-
             const retry = async (fn, retryCount) => {
                 try {
                     return await fn();
@@ -81,8 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         elements.chatInput.disabled = true;
                         elements.sendButton.disabled = true;
 
-                        const typingIndicator = showTypingIndicator();
-
                         try {
                             const response = await retry(async () => {
                                 console.log('Making API request...');
@@ -108,22 +97,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 return res.json();
                             }, 0);
 
-                            // Remove typing indicator
-                            typingIndicator.remove();
-
                             console.log('API response received:', response);
                             await sendMessage(response.response, false);
                             retryCount = 0;
 
-                            // Handle booking completion
-                            if (response.response.includes('BOOKING_COMPLETE')) {
-                                showBookingSuccess();
-                            }
-
                         } catch (error) {
-                            // Remove typing indicator
-                            typingIndicator.remove();
-
                             console.error('API request error:', error);
                             let errorMessage = 'Lo siento, ha ocurrido un error. Por favor, inténtalo de nuevo.';
                             
@@ -144,27 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.error('Message sending error:', error);
                     showError('Error al enviar el mensaje. Por favor, inténtalo de nuevo.');
                 }
-            };
-
-            const showBookingSuccess = () => {
-                // Clear conversation history after successful booking
-                conversationHistory = [];
-                
-                // Show success message with animation
-                const successDiv = document.createElement('div');
-                successDiv.className = 'chat-message system-message success-message';
-                successDiv.innerHTML = `
-                    <div class="message-content">
-                        <i class="success-icon" data-feather="check-circle"></i>
-                        <p>¡Reserva completada con éxito!</p>
-                        <small>Revisa tu correo para los detalles de la cita.</small>
-                    </div>
-                `;
-                elements.chatMessages.appendChild(successDiv);
-                elements.chatMessages.scrollTop = elements.chatMessages.scrollHeight;
-                
-                // Initialize Feather icons for the success message
-                feather.replace();
             };
 
             const handleMessageSend = async () => {
@@ -203,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         console.log('Chat toggle clicked');
                         elements.chatBody.style.display = elements.chatBody.style.display === 'none' ? 'flex' : 'none';
                         if (elements.chatBody.style.display === 'flex' && conversationHistory.length === 0) {
-                            sendMessage('¡Hola! Soy el asistente virtual de KIT CONSULTING. ¿En qué puedo ayudarte?', false);
+                            sendMessage('¡Hola! Soy el asistente virtual de Navegatel. ¿En qué puedo ayudarte a entender nuestro programa de KIT CONSULTING?', false);
                         }
                     });
 
