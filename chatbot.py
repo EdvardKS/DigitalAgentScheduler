@@ -1,4 +1,4 @@
-# Existing imports and configuration remain the same
+# Existing imports remain the same
 import os
 import openai
 from datetime import datetime, timedelta
@@ -19,10 +19,8 @@ except:
     except:
         logging.warning("Spanish locale not available, falling back to default")
 
-# Load environment variables
+# Load environment variables and configure logging
 load_dotenv()
-
-# Configure logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
@@ -44,7 +42,8 @@ BOOKING_STATES = {
     'SELECTING_SERVICE': 4,
     'SELECTING_DATE': 5,
     'SELECTING_TIME': 6,
-    'CONFIRMATION': 7
+    'REVIEWING_JSON': 7,
+    'CONFIRMATION': 8
 }
 
 # Available services
@@ -58,10 +57,28 @@ class BookingSession:
     def __init__(self):
         self.state = 'INITIAL'
         self.data = {}
-        
+    
     def format_state_data(self):
         """Format state data for internal use"""
         return f"__STATE__{self.state}__DATA__{json.dumps(self.data)}__END__"
+    
+    def get_json_summary(self):
+        """Generate a formatted JSON summary of the booking"""
+        summary = {
+            "appointment": {
+                "personal_info": {
+                    "name": self.data.get('name', ''),
+                    "email": self.data.get('email', ''),
+                    "phone": self.data.get('phone', 'No proporcionado')
+                },
+                "service": self.data.get('service', ''),
+                "schedule": {
+                    "date": self.data.get('formatted_date', ''),
+                    "time": self.data.get('time', '')
+                }
+            }
+        }
+        return json.dumps(summary, indent=2, ensure_ascii=False)
     
     @staticmethod
     def extract_state_data(message):
@@ -163,7 +180,8 @@ def handle_booking_step(user_input, session):
     if session.state == 'INITIAL':
         session.state = 'COLLECTING_NAME'
         return create_response(
-            "¡Perfecto! Para ayudarte a agendar una cita, necesito algunos datos.\n\n"
+            "<strong>¡Bienvenido al sistema de reservas!</strong>\n\n"
+            "Para ayudarte a agendar una cita, necesito algunos datos.\n\n"
             "<strong>Por favor, introduce tu nombre completo:</strong>"
         )
     
@@ -174,7 +192,7 @@ def handle_booking_step(user_input, session):
         session.data['name'] = user_input
         session.state = 'COLLECTING_EMAIL'
         return create_response(
-            f"Gracias {user_input}.\n\n"
+            f"Gracias <strong>{user_input}</strong>.\n\n"
             "<strong>Por favor, introduce tu correo electrónico para enviarte "
             "la confirmación de la cita:</strong>"
         )
@@ -219,7 +237,7 @@ def handle_booking_step(user_input, session):
         slots = get_available_slots()
         if not slots:
             return create_response(
-                "Lo siento, no hay fechas disponibles en los próximos días. "
+                "<strong>Lo siento, no hay fechas disponibles en los próximos días.</strong>\n"
                 "Por favor, intenta más tarde."
             )
         
@@ -271,28 +289,18 @@ def handle_booking_step(user_input, session):
             return create_response(error_messages['time_index'])
         
         session.data['time'] = selected_slot['times'][time_index]
-        session.state = 'CONFIRMATION'
+        session.state = 'REVIEWING_JSON'
         
-        phone_info = (
-            f"<li>Teléfono: {session.data['phone']}</li>\n"
-            if session.data.get('phone')
-            else "<li>Teléfono: No proporcionado</li>\n"
-        )
+        # Generate JSON summary
+        json_summary = session.get_json_summary()
         
         return create_response(
-            "<strong>Por favor, revisa los detalles de tu cita:</strong>\n\n"
-            "<ul>\n"
-            f"<li>Nombre: {session.data['name']}</li>\n"
-            f"<li>Email: {session.data['email']}</li>\n" +
-            phone_info +
-            f"<li>Fecha: {session.data['formatted_date']}</li>\n"
-            f"<li>Hora: {session.data['time']}</li>\n"
-            f"<li>Servicio: {session.data['service']}</li>\n"
-            "</ul>\n\n"
-            "<strong>¿Confirmas esta cita?</strong> (Responde 'sí' para confirmar o 'no' para cancelar)"
+            "<strong>Resumen de tu cita:</strong>\n\n"
+            "<pre><code>" + json_summary + "</code></pre>\n\n"
+            "<strong>¿Los datos son correctos?</strong> (Responde 'sí' para confirmar o 'no' para cancelar)"
         )
     
-    elif session.state == 'CONFIRMATION':
+    elif session.state == 'REVIEWING_JSON':
         if not validate_input('confirmation', user_input):
             return create_response(error_messages['confirmation'])
         
@@ -315,7 +323,8 @@ def handle_booking_step(user_input, session):
                 
                 return create_response(
                     "<strong>¡Tu cita ha sido confirmada!</strong>\n\n"
-                    "Te hemos enviado un correo electrónico con los detalles.\n\n"
+                    "Te hemos enviado un correo electrónico con los detalles.\n"
+                    "También recibirás un recordatorio 24 horas antes de la cita.\n\n"
                     "¿Hay algo más en lo que pueda ayudarte?" +
                     "\n\nBOOKING_COMPLETE"
                 )

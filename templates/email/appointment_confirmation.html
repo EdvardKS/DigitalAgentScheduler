@@ -1,68 +1,96 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="utf-8">
     <style>
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
-            color: #333333;
-        }
-        .container {
+            color: #333;
             max-width: 600px;
             margin: 0 auto;
             padding: 20px;
         }
         .header {
-            background-color: #FF0000;
-            color: white;
-            padding: 20px;
             text-align: center;
+            margin-bottom: 30px;
         }
-        .content {
+        .logo {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+        .details {
+            background-color: #f8f9fa;
             padding: 20px;
-            background-color: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .details h3 {
+            color: #d8001d;
+            margin-top: 0;
+        }
+        .footer {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
         }
         .button {
             display: inline-block;
             padding: 10px 20px;
-            background-color: #FF0000;
+            background-color: #d8001d;
             color: white;
             text-decoration: none;
             border-radius: 5px;
-            margin: 10px 0;
-        }
-        .footer {
-            text-align: center;
-            padding: 20px;
-            font-size: 12px;
+            margin: 10px 5px;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <img src="cid:logo" alt="Company Logo" style="width: 100px;">
-            <h1>Appointment Confirmation</h1>
-        </div>
-        <div class="content">
-            <p>Dear {{ name }},</p>
-            <p>Your appointment has been successfully scheduled. Here are the details:</p>
-            <ul>
-                <li><strong>Service:</strong> {{ service }}</li>
-                <li><strong>Date:</strong> {{ date }}</li>
-                <li><strong>Time:</strong> {{ time }}</li>
-            </ul>
-            <p>
-                <a href="{{ cancel_url }}" class="button">Cancel Appointment</a>
-                <a href="{{ reschedule_url }}" class="button">Reschedule</a>
-            </p>
-            <p>If you need to make any changes, please click the buttons above or contact us.</p>
-        </div>
-        <div class="footer">
-            <p>AI Engineering Consultancy</p>
-            <p>Contact us: {{ contact_email }}</p>
-            <p>© 2024 AI Engineering Consultancy. All rights reserved.</p>
-        </div>
+    <div class="header">
+        <img src="cid:logo" alt="KIT CONSULTING" class="logo">
+        <h2>Confirmación de Cita</h2>
+    </div>
+
+    <p>Estimado/a <strong>{{ name }}</strong>,</p>
+
+    <p>Tu cita ha sido confirmada exitosamente. A continuación encontrarás todos los detalles:</p>
+
+    <div class="details">
+        <h3>Detalles de la Cita</h3>
+        <p><strong>Servicio:</strong> {{ service }}</p>
+        <p><strong>Fecha:</strong> {{ date }}</p>
+        <p><strong>Hora:</strong> {{ time }}</p>
+        <p><strong>Consultor:</strong> Edvard Khachatryan</p>
+        <p><strong>Ubicación:</strong> Consulta Virtual (recibirás el enlace 1 hora antes)</p>
+    </div>
+
+    <div class="details">
+        <h3>Información de Contacto</h3>
+        <p><strong>Nombre:</strong> {{ name }}</p>
+        <p><strong>Email:</strong> {{ email }}</p>
+        {% if phone %}
+        <p><strong>Teléfono:</strong> {{ phone }}</p>
+        {% endif %}
+    </div>
+
+    <p>Recibirás un recordatorio 24 horas antes de tu cita.</p>
+
+    <div style="text-align: center; margin: 30px 0;">
+        <a href="{{ reschedule_url }}" class="button">Reprogramar Cita</a>
+        <a href="{{ cancel_url }}" class="button" style="background-color: #6c757d;">Cancelar Cita</a>
+    </div>
+
+    <p>Si tienes alguna pregunta o necesitas modificar tu cita, no dudes en contactarnos:</p>
+    <p style="text-align: center;">
+        <a href="mailto:{{ contact_email }}">{{ contact_email }}</a>
+    </p>
+
+    <div class="footer">
+        <p>KIT CONSULTING - Transformación Digital</p>
+        <p>Este es un correo automático, por favor no responder directamente.</p>
     </div>
 </body>
 </html>
