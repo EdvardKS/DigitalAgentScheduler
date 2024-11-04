@@ -53,14 +53,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             };
 
+            const stripStateData = (message) => {
+                if (typeof message !== 'string') return message;
+                const stateStart = message.indexOf('__STATE__');
+                if (stateStart === -1) return message;
+                return message.substring(0, stateStart).trim();
+            };
+
+            const extractStateData = (message) => {
+                if (typeof message !== 'string') return null;
+                const stateStart = message.indexOf('__STATE__');
+                const stateEnd = message.indexOf('__END__');
+                if (stateStart === -1 || stateEnd === -1) return null;
+                
+                const stateSection = message.substring(
+                    stateStart + '__STATE__'.length,
+                    stateEnd
+                );
+                const dataStart = stateSection.indexOf('__DATA__');
+                if (dataStart === -1) return null;
+                
+                return {
+                    state: stateSection.substring(0, dataStart),
+                    data: JSON.parse(stateSection.substring(dataStart + '__DATA__'.length))
+                };
+            };
+
             const sendMessage = async (message, isUser = true) => {
                 console.log(`Sending message (${isUser ? 'user' : 'bot'}):`, message);
                 try {
+                    const displayMessage = stripStateData(message);
                     const messageDiv = document.createElement('div');
                     messageDiv.className = `chat-message ${isUser ? 'user-message' : 'bot-message'}`;
-                    messageDiv.innerHTML = `<div class="message-content">${message}</div>`;
+                    messageDiv.innerHTML = `<div class="message-content">${displayMessage}</div>`;
                     elements.chatMessages.appendChild(messageDiv);
 
+                    // Store complete message in history but display cleaned version
                     conversationHistory.push({
                         text: message,
                         is_user: isUser
