@@ -9,6 +9,7 @@ from models import db, Appointment
 from sqlalchemy import func
 import logging
 from dotenv import load_dotenv
+from appointments import AppointmentManager
 
 # Load environment variables
 load_dotenv()
@@ -64,6 +65,11 @@ def check_rate_limit(ip):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/appointment')
+def appointment():
+    """Route for appointment booking page"""
+    return render_template('appointment.html')
 
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot_response():
@@ -126,6 +132,50 @@ def chatbot_response():
             "error": "Ha ocurrido un error inesperado.",
             "details": "An unexpected error occurred while processing the request"
         }), 500
+
+@app.route('/api/book-appointment', methods=['POST'])
+def book_appointment():
+    """Endpoint for booking appointments"""
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
+
+        success, message, appointment = AppointmentManager.create_appointment(data)
+        
+        if success:
+            return jsonify({
+                "message": message,
+                "appointment_id": appointment.id
+            }), 201
+        else:
+            return jsonify({"error": message}), 400
+
+    except Exception as e:
+        logger.error(f"Error booking appointment: {str(e)}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/available-slots/<date>', methods=['GET'])
+def get_available_slots(date):
+    """Get available appointment slots for a given date"""
+    try:
+        slots = AppointmentManager.get_available_slots(date)
+        return jsonify({"slots": slots})
+    except Exception as e:
+        logger.error(f"Error getting available slots: {str(e)}", exc_info=True)
+        return jsonify({"error": "Error retrieving available slots"}), 500
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
+def cancel_appointment(appointment_id):
+    """Cancel an existing appointment"""
+    try:
+        success, message = AppointmentManager.cancel_appointment(appointment_id)
+        if success:
+            return jsonify({"message": message}), 200
+        return jsonify({"error": message}), 400
+    except Exception as e:
+        logger.error(f"Error cancelling appointment: {str(e)}", exc_info=True)
+        return jsonify({"error": "Error cancelling appointment"}), 500
 
 if __name__ == "__main__":
     with app.app_context():
