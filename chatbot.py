@@ -1,3 +1,4 @@
+# Existing imports and configuration remain the same
 import os
 import openai
 from datetime import datetime, timedelta
@@ -95,6 +96,13 @@ def format_date_spanish(date_str):
     except:
         return date_str
 
+def format_list_html(items, prefix=""):
+    """Helper function to format lists as HTML"""
+    if not items:
+        return ""
+    list_items = "\n".join([f"<li>{prefix}{i+1}. {item}</li>" for i, item in enumerate(items)])
+    return f"<ul>\n{list_items}\n</ul>"
+
 def get_available_slots():
     """Get available appointment slots"""
     slots = []
@@ -136,16 +144,16 @@ def get_available_slots():
     return slots
 
 def handle_booking_step(user_input, session):
-    """Handle each step of the booking process"""
+    """Handle each step of the booking process with improved formatting"""
     
     error_messages = {
-        'name': "Por favor, ingresa un nombre válido usando solo letras (ejemplo: Juan Pérez).",
-        'email': "Por favor, ingresa un correo electrónico válido (ejemplo: nombre@dominio.com).",
-        'phone': "Por favor, ingresa un número de teléfono español válido o escribe 'saltar'.",
-        'service_index': "Por favor, selecciona un número válido de la lista de servicios.",
-        'date_index': "Por favor, selecciona un número válido de la lista de fechas.",
-        'time_index': "Por favor, selecciona un número válido de la lista de horarios.",
-        'confirmation': "Por favor, responde 'sí' para confirmar o 'no' para cancelar."
+        'name': "<strong>Por favor, ingresa un nombre válido usando solo letras</strong> (ejemplo: Juan Pérez).",
+        'email': "<strong>Por favor, ingresa un correo electrónico válido</strong> (ejemplo: nombre@dominio.com).",
+        'phone': "<strong>Por favor, ingresa un número de teléfono español válido o escribe 'saltar'</strong>.",
+        'service_index': "<strong>Por favor, selecciona un número válido de la lista de servicios.</strong>",
+        'date_index': "<strong>Por favor, selecciona un número válido de la lista de fechas.</strong>",
+        'time_index': "<strong>Por favor, selecciona un número válido de la lista de horarios.</strong>",
+        'confirmation': "<strong>Por favor, responde 'sí' para confirmar o 'no' para cancelar.</strong>"
     }
 
     def create_response(message):
@@ -155,8 +163,8 @@ def handle_booking_step(user_input, session):
     if session.state == 'INITIAL':
         session.state = 'COLLECTING_NAME'
         return create_response(
-            "¡Perfecto! Para ayudarte a agendar una cita, necesito algunos datos. "
-            "Por favor, introduce tu nombre completo."
+            "¡Perfecto! Para ayudarte a agendar una cita, necesito algunos datos.\n\n"
+            "<strong>Por favor, introduce tu nombre completo:</strong>"
         )
     
     elif session.state == 'COLLECTING_NAME':
@@ -166,8 +174,9 @@ def handle_booking_step(user_input, session):
         session.data['name'] = user_input
         session.state = 'COLLECTING_EMAIL'
         return create_response(
-            f"Gracias {user_input}. Ahora necesito tu correo electrónico para enviarte "
-            "la confirmación de la cita."
+            f"Gracias {user_input}.\n\n"
+            "<strong>Por favor, introduce tu correo electrónico para enviarte "
+            "la confirmación de la cita:</strong>"
         )
     
     elif session.state == 'COLLECTING_EMAIL':
@@ -177,8 +186,8 @@ def handle_booking_step(user_input, session):
         session.data['email'] = user_input
         session.state = 'COLLECTING_PHONE'
         return create_response(
-            "Perfecto. ¿Podrías proporcionarme un número de teléfono para contactarte en caso necesario? "
-            "(Este campo es opcional, puedes escribir 'saltar' para continuar)."
+            "<strong>¿Podrías proporcionarme un número de teléfono para contactarte en caso necesario?</strong>\n"
+            "(Este campo es opcional, puedes escribir 'saltar' para continuar)"
         )
     
     elif session.state == 'COLLECTING_PHONE':
@@ -191,15 +200,12 @@ def handle_booking_step(user_input, session):
         session.data['phone'] = user_input
         session.state = 'SELECTING_SERVICE'
         
-        services_text = "\n".join(
-            f"{i+1}. {service}"
-            for i, service in enumerate(SERVICES)
-        )
+        services_html = format_list_html(SERVICES)
         
         return create_response(
-            "Gracias. ¿Qué servicio te interesa?\n\n" +
-            services_text + "\n\n"
-            "Por favor, selecciona el número del servicio deseado."
+            "<strong>¿Qué servicio te interesa?</strong>\n\n" +
+            services_html + "\n\n"
+            "<strong>Por favor, selecciona el número del servicio deseado:</strong>"
         )
     
     elif session.state == 'SELECTING_SERVICE':
@@ -217,15 +223,13 @@ def handle_booking_step(user_input, session):
                 "Por favor, intenta más tarde."
             )
         
-        dates_text = "\n".join(
-            f"{i+1}. {slot['formatted_date']}"
-            for i, slot in enumerate(slots)
-        )
+        dates_html = format_list_html([slot['formatted_date'] for slot in slots])
         
         return create_response(
-            f"Has seleccionado: {session.data['service']}\n\n"
-            f"Estas son las fechas disponibles:\n\n{dates_text}\n\n"
-            "Por favor, selecciona el número de la fecha que prefieres."
+            f"Has seleccionado: <strong>{session.data['service']}</strong>\n\n"
+            "<strong>Estas son las fechas disponibles:</strong>\n" +
+            dates_html + "\n"
+            "<strong>Por favor, selecciona el número de la fecha que prefieres:</strong>"
         )
     
     elif session.state == 'SELECTING_DATE':
@@ -243,15 +247,13 @@ def handle_booking_step(user_input, session):
         session.data['formatted_date'] = selected_date['formatted_date']
         session.state = 'SELECTING_TIME'
         
-        times_text = "\n".join(
-            f"{i+1}. {time}"
-            for i, time in enumerate(selected_date['times'])
-        )
+        times_html = format_list_html(selected_date['times'])
         
         return create_response(
-            f"Has seleccionado el {selected_date['formatted_date']}.\n\n"
-            f"Estos son los horarios disponibles:\n\n{times_text}\n\n"
-            "Por favor, selecciona el número del horario que prefieres."
+            f"Has seleccionado el <strong>{selected_date['formatted_date']}</strong>.\n\n"
+            "<strong>Estos son los horarios disponibles:</strong>\n" +
+            times_html + "\n"
+            "<strong>Por favor, selecciona el número del horario que prefieres:</strong>"
         )
     
     elif session.state == 'SELECTING_TIME':
@@ -272,20 +274,22 @@ def handle_booking_step(user_input, session):
         session.state = 'CONFIRMATION'
         
         phone_info = (
-            f"Teléfono: {session.data['phone']}\n"
+            f"<li>Teléfono: {session.data['phone']}</li>\n"
             if session.data.get('phone')
-            else "Teléfono: No proporcionado\n"
+            else "<li>Teléfono: No proporcionado</li>\n"
         )
         
         return create_response(
-            "Por favor, revisa los detalles de tu cita:\n\n"
-            f"Nombre: {session.data['name']}\n"
-            f"Email: {session.data['email']}\n" +
+            "<strong>Por favor, revisa los detalles de tu cita:</strong>\n\n"
+            "<ul>\n"
+            f"<li>Nombre: {session.data['name']}</li>\n"
+            f"<li>Email: {session.data['email']}</li>\n" +
             phone_info +
-            f"Fecha: {session.data['formatted_date']}\n"
-            f"Hora: {session.data['time']}\n"
-            f"Servicio: {session.data['service']}\n\n"
-            "¿Confirmas esta cita? (Responde 'sí' para confirmar o 'no' para cancelar)"
+            f"<li>Fecha: {session.data['formatted_date']}</li>\n"
+            f"<li>Hora: {session.data['time']}</li>\n"
+            f"<li>Servicio: {session.data['service']}</li>\n"
+            "</ul>\n\n"
+            "<strong>¿Confirmas esta cita?</strong> (Responde 'sí' para confirmar o 'no' para cancelar)"
         )
     
     elif session.state == 'CONFIRMATION':
@@ -310,25 +314,26 @@ def handle_booking_step(user_input, session):
                 schedule_reminder_email(appointment)
                 
                 return create_response(
-                    "¡Tu cita ha sido confirmada! Te hemos enviado un correo electrónico "
-                    "con los detalles. ¿Hay algo más en lo que pueda ayudarte?" +
+                    "<strong>¡Tu cita ha sido confirmada!</strong>\n\n"
+                    "Te hemos enviado un correo electrónico con los detalles.\n\n"
+                    "¿Hay algo más en lo que pueda ayudarte?" +
                     "\n\nBOOKING_COMPLETE"
                 )
             except Exception as e:
                 logger.error(f"Error creating appointment: {str(e)}")
                 return create_response(
-                    "Lo siento, ha ocurrido un error al procesar tu cita. "
+                    "<strong>Lo siento, ha ocurrido un error al procesar tu cita.</strong>\n"
                     "Por favor, intenta de nuevo más tarde."
                 )
         else:
             return create_response(
-                "De acuerdo, he cancelado la reserva. "
+                "<strong>De acuerdo, he cancelado la reserva.</strong>\n\n"
                 "¿Hay algo más en lo que pueda ayudarte?" +
                 "\n\nBOOKING_CANCELLED"
             )
     
     return create_response(
-        "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo."
+        "<strong>Lo siento, ha ocurrido un error. Por favor, intenta de nuevo.</strong>"
     )
 
 def generate_response(user_message, conversation_history=None):
