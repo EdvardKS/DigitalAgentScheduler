@@ -1,11 +1,15 @@
 <!DOCTYPE html>
 <html>
 <head>
+    <meta charset="UTF-8">
     <style>
         body {
             font-family: Arial, sans-serif;
             line-height: 1.6;
             color: #333333;
+            margin: 0;
+            padding: 0;
+            background-color: #f7f7f7;
         }
         .container {
             max-width: 600px;
@@ -13,55 +17,115 @@
             padding: 20px;
         }
         .header {
-            background-color: #FF0000;
+            background-color: #d8001d;
             color: white;
-            padding: 20px;
+            padding: 30px 20px;
             text-align: center;
+            border-radius: 8px 8px 0 0;
+        }
+        .logo {
+            width: 200px;
+            height: auto;
+            margin-bottom: 20px;
         }
         .content {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 0 0 8px 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .appointment-details {
+            background-color: #f8f9fa;
             padding: 20px;
-            background-color: #f9f9f9;
+            border-radius: 6px;
+            margin: 20px 0;
+        }
+        .appointment-details h3 {
+            color: #d8001d;
+            margin-top: 0;
         }
         .button {
             display: inline-block;
-            padding: 10px 20px;
-            background-color: #FF0000;
+            padding: 12px 24px;
+            background-color: #d8001d;
             color: white;
             text-decoration: none;
-            border-radius: 5px;
-            margin: 10px 0;
+            border-radius: 6px;
+            margin: 10px 5px;
+            font-weight: bold;
+        }
+        .button:hover {
+            background-color: #b30018;
         }
         .footer {
             text-align: center;
             padding: 20px;
+            color: #666666;
             font-size: 12px;
+        }
+        .social-links {
+            margin: 20px 0;
+        }
+        .social-links a {
+            margin: 0 10px;
+            color: #d8001d;
+            text-decoration: none;
+        }
+        .divider {
+            border-top: 1px solid #eeeeee;
+            margin: 20px 0;
         }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <img src="cid:logo" alt="Company Logo" style="width: 100px;">
-            <h1>Appointment Confirmation</h1>
+            <img src="cid:logo" alt="KIT CONSULTING" class="logo">
+            <h1>Confirmación de Cita</h1>
         </div>
         <div class="content">
-            <p>Dear {{ name }},</p>
-            <p>Your appointment has been successfully scheduled. Here are the details:</p>
+            <p>Estimado/a {{ name }},</p>
+            <p>Tu cita ha sido confirmada exitosamente. A continuación encontrarás los detalles:</p>
+            
+            <div class="appointment-details">
+                <h3>Detalles de la Cita</h3>
+                <ul style="list-style: none; padding: 0;">
+                    <li><strong>Servicio:</strong> {{ service }}</li>
+                    <li><strong>Fecha:</strong> {{ date }}</li>
+                    <li><strong>Hora:</strong> {{ time }}</li>
+                    <li><strong>Consultor:</strong> Edvard Khachatryan Sahakyan</li>
+                    <li><strong>Ubicación:</strong> C/ Cardenal Cisneros, 5 - 03201 Elche (Alicante)</li>
+                </ul>
+            </div>
+
+            <p>¿Necesitas hacer cambios en tu cita?</p>
+            <div style="text-align: center;">
+                <a href="{{ reschedule_url }}" class="button">Reprogramar Cita</a>
+                <a href="{{ cancel_url }}" class="button" style="background-color: #6c757d;">Cancelar Cita</a>
+            </div>
+
+            <div class="divider"></div>
+
+            <p><strong>Recordatorio:</strong></p>
             <ul>
-                <li><strong>Service:</strong> {{ service }}</li>
-                <li><strong>Date:</strong> {{ date }}</li>
-                <li><strong>Time:</strong> {{ time }}</li>
+                <li>Recibirás un recordatorio 24 horas antes de tu cita</li>
+                <li>Por favor, llega 5 minutos antes de tu hora programada</li>
+                <li>Si necesitas cancelar o reprogramar, hazlo con al menos 24 horas de anticipación</li>
             </ul>
-            <p>
-                <a href="{{ cancel_url }}" class="button">Cancel Appointment</a>
-                <a href="{{ reschedule_url }}" class="button">Reschedule</a>
-            </p>
-            <p>If you need to make any changes, please click the buttons above or contact us.</p>
+
+            <div class="divider"></div>
+
+            <div class="social-links">
+                <a href="https://instagram.com" target="_blank">Instagram</a> |
+                <a href="https://facebook.com" target="_blank">Facebook</a> |
+                <a href="tel:673660910">673 66 09 10</a>
+            </div>
         </div>
         <div class="footer">
-            <p>AI Engineering Consultancy</p>
-            <p>Contact us: {{ contact_email }}</p>
-            <p>© 2024 AI Engineering Consultancy. All rights reserved.</p>
+            <p>KIT CONSULTING - Transformación Digital</p>
+            <p>C/ Cardenal Cisneros, 5 - 03201 Elche (Alicante)</p>
+            <p>Email: {{ contact_email }}</p>
+            <p>© 2024 KIT CONSULTING. Todos los derechos reservados.</p>
         </div>
     </div>
 </body>

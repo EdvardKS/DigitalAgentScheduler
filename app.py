@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime, time, timedelta
-from chatbot import generate_response, get_model_metrics
+from chatbot import generate_response
 from functools import wraps
 from flask_mail import Mail
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email
