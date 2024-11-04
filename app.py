@@ -6,6 +6,7 @@ from functools import wraps
 from flask_mail import Mail
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email
 from models import db, Appointment
+from appointment_manager import AppointmentManager
 from sqlalchemy import func
 import logging
 from dotenv import load_dotenv
@@ -106,9 +107,6 @@ def chatbot_response():
 
         conversation_history = data.get('conversation_history', [])
         
-        # Log request details
-        logger.info(f"Processing chatbot request - IP: {client_ip}, Message length: {len(message)}")
-        
         try:
             response = generate_response(message, conversation_history)
             return jsonify({"response": response})
@@ -125,6 +123,54 @@ def chatbot_response():
         return jsonify({
             "error": "Ha ocurrido un error inesperado.",
             "details": "An unexpected error occurred while processing the request"
+        }), 500
+
+@app.route('/api/book-appointment', methods=['POST'])
+def book_appointment():
+    """Endpoint for booking appointments"""
+    try:
+        data = request.get_json()
+        required_fields = ['name', 'email', 'service', 'date', 'time']
+        
+        # Validate required fields
+        if not all(field in data for field in required_fields):
+            return jsonify({
+                'error': 'Missing required fields',
+                'details': 'Please provide all required information'
+            }), 400
+            
+        # Create appointment
+        appointment = AppointmentManager.create_appointment(
+            name=data['name'],
+            email=data['email'],
+            service=data['service'],
+            date=data['date'],
+            time_str=data['time']
+        )
+        
+        return jsonify({
+            'message': 'Appointment booked successfully',
+            'appointment_id': appointment.id
+        }), 201
+        
+    except Exception as e:
+        logger.error(f"Error booking appointment: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': 'Failed to book appointment',
+            'details': str(e)
+        }), 500
+
+@app.route('/api/available-slots/<date>', methods=['GET'])
+def get_available_slots(date):
+    """Endpoint to get available appointment slots for a date"""
+    try:
+        slots = AppointmentManager.get_available_slots(date)
+        return jsonify({'slots': slots}), 200
+    except Exception as e:
+        logger.error(f"Error getting available slots: {str(e)}", exc_info=True)
+        return jsonify({
+            'error': 'Failed to get available slots',
+            'details': str(e)
         }), 500
 
 if __name__ == "__main__":
