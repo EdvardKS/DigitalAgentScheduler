@@ -11,6 +11,48 @@ import re
 # Load environment variables
 load_dotenv()
 
+# Spanish translations for dates
+SPANISH_DAYS = {
+    'Monday': 'Lunes',
+    'Tuesday': 'Martes',
+    'Wednesday': 'Miércoles',
+    'Thursday': 'Jueves',
+    'Friday': 'Viernes',
+    'Saturday': 'Sábado',
+    'Sunday': 'Domingo'
+}
+
+SPANISH_MONTHS = {
+    'January': 'enero',
+    'February': 'febrero',
+    'March': 'marzo',
+    'April': 'abril',
+    'May': 'mayo',
+    'June': 'junio',
+    'July': 'julio',
+    'August': 'agosto',
+    'September': 'septiembre',
+    'October': 'octubre',
+    'November': 'noviembre',
+    'December': 'diciembre'
+}
+
+def format_date_spanish(date_obj):
+    """Format a date in Spanish"""
+    eng_day = date_obj.strftime('%A')
+    eng_month = date_obj.strftime('%B')
+    day = SPANISH_DAYS[eng_day]
+    month = SPANISH_MONTHS[eng_month]
+    return f"{day}, {date_obj.day} de {month}"
+
+def format_date_full_spanish(date_obj):
+    """Format a full date in Spanish including year"""
+    eng_day = date_obj.strftime('%A')
+    eng_month = date_obj.strftime('%B')
+    day = SPANISH_DAYS[eng_day]
+    month = SPANISH_MONTHS[eng_month]
+    return f"{day}, {date_obj.day} de {month} de {date_obj.year}"
+
 # Set up enhanced logging configuration
 logging.basicConfig(
     level=logging.INFO,
@@ -53,6 +95,13 @@ EMAIL_PATTERN = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
 NAME_MIN_LENGTH = 2
 NAME_MAX_LENGTH = 50
 
+# Available services
+AVAILABLE_SERVICES = {
+    '1': 'Inteligencia Artificial',
+    '2': 'Ventas Digitales',
+    '3': 'Estrategia y Rendimiento de Negocio'
+}
+
 class AppointmentData:
     def __init__(self):
         self.name = None
@@ -62,6 +111,8 @@ class AppointmentData:
         self.time = None
         self.state = APPOINTMENT_STATES['INIT']
         self.temp_email = None
+        self.available_dates = []
+        self.available_times = []
 
     def is_complete(self):
         return all([self.name, self.email, self.service, self.date, self.time])
@@ -109,19 +160,26 @@ def get_available_dates():
     while len(dates) < 7:
         check_date = current_date + timedelta(days=days_ahead)
         if check_date.weekday() < 5:  # Monday = 0, Friday = 4
-            dates.append(check_date.strftime('%Y-%m-%d'))
+            dates.append({
+                'date': check_date.strftime('%Y-%m-%d'),
+                'display': format_date_spanish(check_date)
+            })
         days_ahead += 1
         
     return dates
 
 def format_appointment_summary(data):
     """Format appointment data for confirmation message"""
+    date_obj = datetime.strptime(data.date, '%Y-%m-%d')
+    formatted_date = format_date_full_spanish(date_obj)
+    
     return f"""Por favor, confirma los detalles de tu cita:
-- Nombre: {data.name}
-- Email: {data.email}
-- Servicio: {data.service}
-- Fecha: {data.date}
-- Hora: {data.time}
+
+📅 Fecha: {formatted_date}
+🕒 Hora: {data.time}
+👤 Nombre: {data.name}
+📧 Email: {data.email}
+💼 Servicio: {data.service}
 
 ¿Deseas confirmar esta cita? (Responde 'sí' para confirmar o 'no' para cancelar)"""
 
@@ -129,18 +187,17 @@ def handle_appointment_conversation(message, appointment_data):
     """Handle the appointment booking conversation flow"""
     try:
         message = message.strip().lower()
-        response = ""
         
         if appointment_data.state == APPOINTMENT_STATES['INIT']:
             appointment_data.state = APPOINTMENT_STATES['GET_NAME']
-            return "Por favor, dime tu nombre completo."
+            return "¡Perfecto! Para programar tu cita, primero necesito algunos datos. Por favor, dime tu nombre completo."
             
         elif appointment_data.state == APPOINTMENT_STATES['GET_NAME']:
             is_valid, result = validate_name(message)
             if is_valid:
                 appointment_data.name = result
                 appointment_data.state = APPOINTMENT_STATES['GET_EMAIL']
-                return "Gracias. Ahora, por favor proporciona tu dirección de email."
+                return f"Gracias {result}. Ahora, por favor proporciona tu dirección de email para enviarte la confirmación."
             return result
             
         elif appointment_data.state == APPOINTMENT_STATES['GET_EMAIL']:
@@ -152,71 +209,76 @@ def handle_appointment_conversation(message, appointment_data):
             return result
             
         elif appointment_data.state == APPOINTMENT_STATES['CONFIRM_EMAIL']:
-            if message == 'si' or message == 'sí':
+            if message in ['si', 'sí']:
                 appointment_data.email = appointment_data.temp_email
                 appointment_data.state = APPOINTMENT_STATES['GET_SERVICE']
-                return """¿Qué servicio te interesa?
-1. Inteligencia Artificial
-2. Ventas Digitales
-3. Estrategia y Rendimiento de Negocio
-(Responde con el número o nombre del servicio)"""
+                service_options = "\n".join([f"{key}. {value}" for key, value in AVAILABLE_SERVICES.items()])
+                return f"""¿Qué servicio te interesa?
+
+{service_options}
+
+Por favor, selecciona el número del servicio."""
             elif message == 'no':
                 appointment_data.state = APPOINTMENT_STATES['GET_EMAIL']
                 return "Por favor, proporciona tu dirección de email correcta."
             return "Por favor, responde 'sí' o 'no'."
             
         elif appointment_data.state == APPOINTMENT_STATES['GET_SERVICE']:
-            services = {
-                '1': 'Inteligencia Artificial',
-                '2': 'Ventas Digitales',
-                '3': 'Estrategia y Rendimiento de Negocio'
-            }
-            
-            service = services.get(message) if message.isdigit() else None
+            service = AVAILABLE_SERVICES.get(message)
             if not service:
-                return "Por favor, selecciona un servicio válido (1, 2 o 3)."
+                service_options = "\n".join([f"{key}. {value}" for key, value in AVAILABLE_SERVICES.items()])
+                return f"Por favor, selecciona un número válido del servicio:\n\n{service_options}"
                 
             appointment_data.service = service
             appointment_data.state = APPOINTMENT_STATES['GET_DATE']
             
             available_dates = get_available_dates()
-            date_options = "\n".join([f"{i+1}. {date}" for i, date in enumerate(available_dates)])
-            return f"""Estas son las fechas disponibles para los próximos 7 días laborables:
+            appointment_data.available_dates = available_dates
+            date_options = "\n".join([f"{i+1}. {date['display']}" for i, date in enumerate(available_dates)])
+            
+            return f"""Estas son las fechas disponibles para los próximos días laborables:
+
 {date_options}
-Por favor, selecciona un número del 1 al 7."""
+
+Por favor, selecciona el número de la fecha que prefieras."""
             
         elif appointment_data.state == APPOINTMENT_STATES['GET_DATE']:
             try:
                 date_index = int(message) - 1
-                available_dates = get_available_dates()
-                if 0 <= date_index < len(available_dates):
-                    selected_date = available_dates[date_index]
+                if 0 <= date_index < len(appointment_data.available_dates):
+                    selected_date = appointment_data.available_dates[date_index]['date']
                     appointment_data.date = selected_date
                     appointment_data.state = APPOINTMENT_STATES['GET_TIME']
                     
                     available_slots = AppointmentManager.get_available_slots(selected_date)
                     if not available_slots:
+                        appointment_data.state = APPOINTMENT_STATES['GET_DATE']
                         return "Lo siento, no hay horarios disponibles para esta fecha. Por favor, selecciona otra fecha."
-                        
+                    
+                    appointment_data.available_times = available_slots
                     time_options = "\n".join([f"{i+1}. {slot}" for i, slot in enumerate(available_slots)])
-                    return f"""Horarios disponibles para {selected_date}:
+                    
+                    return f"""Horarios disponibles para la fecha seleccionada:
+
 {time_options}
-Por favor, selecciona un número."""
+
+Por favor, selecciona el número del horario que prefieras."""
                 else:
-                    return "Por favor, selecciona un número válido del 1 al 7."
+                    date_options = "\n".join([f"{i+1}. {date['display']}" for i, date in enumerate(appointment_data.available_dates)])
+                    return f"Por favor, selecciona un número válido de la lista:\n\n{date_options}"
             except ValueError:
                 return "Por favor, ingresa un número válido."
                 
         elif appointment_data.state == APPOINTMENT_STATES['GET_TIME']:
             try:
                 time_index = int(message) - 1
-                available_slots = AppointmentManager.get_available_slots(appointment_data.date)
-                if 0 <= time_index < len(available_slots):
-                    appointment_data.time = available_slots[time_index]
+                if 0 <= time_index < len(appointment_data.available_times):
+                    appointment_data.time = appointment_data.available_times[time_index]
                     appointment_data.state = APPOINTMENT_STATES['CONFIRM']
                     return format_appointment_summary(appointment_data)
                 else:
-                    return "Por favor, selecciona un número válido de las opciones disponibles."
+                    time_options = "\n".join([f"{i+1}. {slot}" for i, slot in enumerate(appointment_data.available_times)])
+                    return f"Por favor, selecciona un número válido del horario:\n\n{time_options}"
             except ValueError:
                 return "Por favor, ingresa un número válido."
                 
@@ -224,7 +286,8 @@ Por favor, selecciona un número."""
             if message in ['si', 'sí']:
                 try:
                     appointment = AppointmentManager.create_appointment(**appointment_data.to_dict())
-                    return """¡Perfecto! Tu cita ha sido confirmada. Recibirás un email de confirmación con los detalles.
+                    return """¡Perfecto! Tu cita ha sido confirmada. En breve recibirás un email con todos los detalles.
+
 ¿Hay algo más en lo que pueda ayudarte?"""
                 except Exception as e:
                     logger.error(f"Error creating appointment: {str(e)}")
@@ -260,7 +323,7 @@ def get_chat_response(user_message, conversation_history=None):
         if appointment_data and appointment_data.state != APPOINTMENT_STATES['INIT']:
             return handle_appointment_conversation(user_message, appointment_data)
 
-        if 'cita' in user_message.lower() or 'agendar' in user_message.lower():
+        if any(word in user_message.lower() for word in ['cita', 'agendar', 'reservar', 'consulta']):
             appointment_data = AppointmentData()
             conversation_history.append({
                 'is_user': False,
@@ -280,10 +343,11 @@ Si el usuario muestra interés en agendar una cita, pregúntale si desea program
 
         # Add conversation history
         for msg in conversation_history:
-            messages.append({
-                "role": "user" if msg["is_user"] else "assistant",
-                "content": msg["text"]
-            })
+            if 'appointment_data' not in msg:
+                messages.append({
+                    "role": "user" if msg["is_user"] else "assistant",
+                    "content": msg["text"]
+                })
 
         # Add the current message
         messages.append({"role": "user", "content": user_message})
