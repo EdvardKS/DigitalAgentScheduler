@@ -61,9 +61,106 @@ def check_rate_limit(ip):
     request_counts[ip].append(now)
     return len(request_counts[ip]) <= RATE_LIMIT
 
+# Decorator for PIN protection
+def require_pin(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if not session.get('pin_verified'):
+            return jsonify({"error": "PIN verification required"}), 401
+        return f(*args, **kwargs)
+    return decorated_function
+
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/appointment-management')
+def appointment_management():
+    return render_template('appointment_management.html')
+
+@app.route('/api/verify-pin', methods=['POST'])
+def verify_pin():
+    data = request.get_json()
+    pin = data.get('pin')
+    correct_pin = os.getenv('CHATBOT_PIN')
+    
+    if pin == correct_pin:
+        session['pin_verified'] = True
+        return jsonify({"success": True})
+    return jsonify({"success": False})
+
+@app.route('/api/appointments', methods=['GET'])
+@require_pin
+def get_appointments():
+    try:
+        # Get all appointments ordered by date and time
+        appointments = Appointment.query.order_by(Appointment.date.desc(), Appointment.time.desc()).all()
+        
+        appointments_list = []
+        for appointment in appointments:
+            appointments_list.append({
+                'id': appointment.id,
+                'name': appointment.name,
+                'email': appointment.email,
+                'date': appointment.date.strftime('%Y-%m-%d'),
+                'time': appointment.time,
+                'service': appointment.service,
+                'created_at': appointment.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            })
+        
+        return jsonify({"appointments": appointments_list})
+    except Exception as e:
+        logger.error(f"Error fetching appointments: {str(e)}")
+        return jsonify({"error": "Error fetching appointments"}), 500
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
+@require_pin
+def delete_appointment(appointment_id):
+    try:
+        appointment = Appointment.query.get(appointment_id)
+        if not appointment:
+            return jsonify({"error": "Appointment not found"}), 404
+        
+        db.session.delete(appointment)
+        db.session.commit()
+        
+        return jsonify({"message": "Appointment deleted successfully"})
+    except Exception as e:
+        logger.error(f"Error deleting appointment: {str(e)}")
+        return jsonify({"error": "Error deleting appointment"}), 500
+
+@app.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
+@require_pin
+def update_appointment(appointment_id):
+    try:
+        appointment = Appointment.query.get(appointment_id)
+        if not appointment:
+            return jsonify({"error": "Appointment not found"}), 404
+        
+        data = request.get_json()
+        appointment.name = data.get('name', appointment.name)
+        appointment.email = data.get('email', appointment.email)
+        appointment.date = datetime.strptime(data.get('date', appointment.date.strftime('%Y-%m-%d')), '%Y-%m-%d').date()
+        appointment.time = data.get('time', appointment.time)
+        appointment.service = data.get('service', appointment.service)
+        
+        db.session.commit()
+        
+        return jsonify({
+            "message": "Appointment updated successfully",
+            "appointment": {
+                'id': appointment.id,
+                'name': appointment.name,
+                'email': appointment.email,
+                'date': appointment.date.strftime('%Y-%m-%d'),
+                'time': appointment.time,
+                'service': appointment.service,
+                'created_at': appointment.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+        })
+    except Exception as e:
+        logger.error(f"Error updating appointment: {str(e)}")
+        return jsonify({"error": "Error updating appointment"}), 500
 
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot_response():
