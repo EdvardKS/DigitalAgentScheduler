@@ -57,18 +57,9 @@ class BookingSession:
     def __init__(self):
         self.state = 'INITIAL'
         self.data = {}
-        self.total_steps = 7
-        self.current_step = 0
         
-    def get_progress(self):
-        """Calculate and format progress percentage"""
-        if self.state == 'INITIAL':
-            return ""
-        progress = (BOOKING_STATES[self.state] / self.total_steps) * 100
-        return f"\n\nProgreso: {progress:.0f}% completado"
-    
     def format_state_data(self):
-        """Format state data for storage in conversation"""
+        """Format state data for internal use"""
         return f"__STATE__{self.state}__DATA__{json.dumps(self.data)}__END__"
     
     @staticmethod
@@ -156,40 +147,38 @@ def handle_booking_step(user_input, session):
         'time_index': "Por favor, selecciona un número válido de la lista de horarios.",
         'confirmation': "Por favor, responde 'sí' para confirmar o 'no' para cancelar."
     }
+
+    def create_response(message):
+        """Helper to create response with hidden state data"""
+        return message + session.format_state_data()
     
     if session.state == 'INITIAL':
         session.state = 'COLLECTING_NAME'
-        return (
+        return create_response(
             "¡Perfecto! Para ayudarte a agendar una cita, necesito algunos datos. "
-            "Por favor, introduce tu nombre completo." + 
-            session.get_progress() +
-            session.format_state_data()
+            "Por favor, introduce tu nombre completo."
         )
     
     elif session.state == 'COLLECTING_NAME':
         if not validate_input('name', user_input):
-            return error_messages['name'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['name'])
         
         session.data['name'] = user_input
         session.state = 'COLLECTING_EMAIL'
-        return (
+        return create_response(
             f"Gracias {user_input}. Ahora necesito tu correo electrónico para enviarte "
-            "la confirmación de la cita." + 
-            session.get_progress() + 
-            session.format_state_data()
+            "la confirmación de la cita."
         )
     
     elif session.state == 'COLLECTING_EMAIL':
         if not validate_input('email', user_input):
-            return error_messages['email'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['email'])
         
         session.data['email'] = user_input
         session.state = 'COLLECTING_PHONE'
-        return (
+        return create_response(
             "Perfecto. ¿Podrías proporcionarme un número de teléfono para contactarte en caso necesario? "
-            "(Este campo es opcional, puedes escribir 'saltar' para continuar)." + 
-            session.get_progress() + 
-            session.format_state_data()
+            "(Este campo es opcional, puedes escribir 'saltar' para continuar)."
         )
     
     elif session.state == 'COLLECTING_PHONE':
@@ -197,7 +186,7 @@ def handle_booking_step(user_input, session):
             user_input = ''
             
         if not validate_input('phone', user_input):
-            return error_messages['phone'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['phone'])
         
         session.data['phone'] = user_input
         session.state = 'SELECTING_SERVICE'
@@ -207,17 +196,15 @@ def handle_booking_step(user_input, session):
             for i, service in enumerate(SERVICES)
         )
         
-        return (
+        return create_response(
             "Gracias. ¿Qué servicio te interesa?\n\n" +
             services_text + "\n\n"
-            "Por favor, selecciona el número del servicio deseado." + 
-            session.get_progress() + 
-            session.format_state_data()
+            "Por favor, selecciona el número del servicio deseado."
         )
     
     elif session.state == 'SELECTING_SERVICE':
         if not validate_input('service_index', user_input):
-            return error_messages['service_index'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['service_index'])
         
         service_index = int(user_input) - 1
         session.data['service'] = SERVICES[service_index]
@@ -225,10 +212,9 @@ def handle_booking_step(user_input, session):
         
         slots = get_available_slots()
         if not slots:
-            return (
+            return create_response(
                 "Lo siento, no hay fechas disponibles en los próximos días. "
-                "Por favor, intenta más tarde." + 
-                session.format_state_data()
+                "Por favor, intenta más tarde."
             )
         
         dates_text = "\n".join(
@@ -236,23 +222,21 @@ def handle_booking_step(user_input, session):
             for i, slot in enumerate(slots)
         )
         
-        return (
+        return create_response(
             f"Has seleccionado: {session.data['service']}\n\n"
             f"Estas son las fechas disponibles:\n\n{dates_text}\n\n"
-            "Por favor, selecciona el número de la fecha que prefieres." + 
-            session.get_progress() + 
-            session.format_state_data()
+            "Por favor, selecciona el número de la fecha que prefieres."
         )
     
     elif session.state == 'SELECTING_DATE':
         if not validate_input('date_index', user_input):
-            return error_messages['date_index'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['date_index'])
         
         slots = get_available_slots()
         date_index = int(user_input) - 1
         
         if date_index < 0 or date_index >= len(slots):
-            return error_messages['date_index'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['date_index'])
         
         selected_date = slots[date_index]
         session.data['date'] = selected_date['date']
@@ -264,17 +248,15 @@ def handle_booking_step(user_input, session):
             for i, time in enumerate(selected_date['times'])
         )
         
-        return (
+        return create_response(
             f"Has seleccionado el {selected_date['formatted_date']}.\n\n"
             f"Estos son los horarios disponibles:\n\n{times_text}\n\n"
-            "Por favor, selecciona el número del horario que prefieres." + 
-            session.get_progress() + 
-            session.format_state_data()
+            "Por favor, selecciona el número del horario que prefieres."
         )
     
     elif session.state == 'SELECTING_TIME':
         if not validate_input('time_index', user_input):
-            return error_messages['time_index'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['time_index'])
         
         slots = get_available_slots()
         selected_slot = next(
@@ -284,7 +266,7 @@ def handle_booking_step(user_input, session):
         
         time_index = int(user_input) - 1
         if time_index < 0 or time_index >= len(selected_slot['times']):
-            return error_messages['time_index'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['time_index'])
         
         session.data['time'] = selected_slot['times'][time_index]
         session.state = 'CONFIRMATION'
@@ -295,7 +277,7 @@ def handle_booking_step(user_input, session):
             else "Teléfono: No proporcionado\n"
         )
         
-        return (
+        return create_response(
             "Por favor, revisa los detalles de tu cita:\n\n"
             f"Nombre: {session.data['name']}\n"
             f"Email: {session.data['email']}\n" +
@@ -303,14 +285,12 @@ def handle_booking_step(user_input, session):
             f"Fecha: {session.data['formatted_date']}\n"
             f"Hora: {session.data['time']}\n"
             f"Servicio: {session.data['service']}\n\n"
-            "¿Confirmas esta cita? (Responde 'sí' para confirmar o 'no' para cancelar)" + 
-            session.get_progress() + 
-            session.format_state_data()
+            "¿Confirmas esta cita? (Responde 'sí' para confirmar o 'no' para cancelar)"
         )
     
     elif session.state == 'CONFIRMATION':
         if not validate_input('confirmation', user_input):
-            return error_messages['confirmation'] + session.get_progress() + session.format_state_data()
+            return create_response(error_messages['confirmation'])
         
         if user_input.lower() in ['si', 'sí', 'yes']:
             try:
@@ -329,30 +309,26 @@ def handle_booking_step(user_input, session):
                 send_appointment_confirmation(appointment)
                 schedule_reminder_email(appointment)
                 
-                return (
+                return create_response(
                     "¡Tu cita ha sido confirmada! Te hemos enviado un correo electrónico "
                     "con los detalles. ¿Hay algo más en lo que pueda ayudarte?" +
-                    "\n\nBOOKING_COMPLETE" +
-                    session.format_state_data()
+                    "\n\nBOOKING_COMPLETE"
                 )
             except Exception as e:
                 logger.error(f"Error creating appointment: {str(e)}")
-                return (
+                return create_response(
                     "Lo siento, ha ocurrido un error al procesar tu cita. "
-                    "Por favor, intenta de nuevo más tarde." +
-                    session.format_state_data()
+                    "Por favor, intenta de nuevo más tarde."
                 )
         else:
-            return (
+            return create_response(
                 "De acuerdo, he cancelado la reserva. "
                 "¿Hay algo más en lo que pueda ayudarte?" +
-                "\n\nBOOKING_CANCELLED" +
-                session.format_state_data()
+                "\n\nBOOKING_CANCELLED"
             )
     
-    return (
-        "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo." +
-        session.format_state_data()
+    return create_response(
+        "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo."
     )
 
 def generate_response(user_message, conversation_history=None):
