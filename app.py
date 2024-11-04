@@ -97,7 +97,7 @@ def require_pin(f):
 def index():
     return render_template('index.html')
 
-@app.route('/appointment-management')
+@app.route('/citas')
 def appointment_management():
     return render_template('appointment_management.html')
 

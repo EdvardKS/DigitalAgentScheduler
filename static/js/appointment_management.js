@@ -1,4 +1,10 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Check if we're on the correct page
+    if (!window.location.pathname.includes('/citas')) {
+        window.location.href = '/citas';
+        return;
+    }
+
     const pinModal = new bootstrap.Modal(document.getElementById('pinModal'));
     const dashboardContent = document.getElementById('dashboardContent');
     const editModal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
