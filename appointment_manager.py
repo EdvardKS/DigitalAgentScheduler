@@ -4,7 +4,7 @@ from email_utils import send_appointment_confirmation, schedule_reminder_email
 from sqlalchemy import func
 import logging
 from flask_mail import Message
-from flask import current_app
+from flask import current_app, render_template
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 class AppointmentManager:
     WORKING_HOURS = {
-        'start': time(9, 30),
-        'end': time(14, 0)
+        'start': time(9, 30),  # Updated to 9:30
+        'end': time(14, 0)    # Updated to 14:00
     }
     SLOT_DURATION = 30  # minutes
     TIMEZONE = 'Europe/Madrid'  # Timezone for Elche, Alicante
@@ -54,46 +54,21 @@ class AppointmentManager:
             raise
 
     @staticmethod
-    def update_appointment_status(appointment_id, new_status):
-        """Update appointment status and send notifications"""
-        try:
-            appointment = Appointment.query.get(appointment_id)
-            if not appointment:
-                raise ValueError(f"Appointment {appointment_id} not found")
-
-            old_status = appointment.status
-            appointment.status = new_status
-            appointment.updated_at = datetime.utcnow()
-            
-            db.session.commit()
-            
-            # Send status update notifications
-            AppointmentManager.send_appointment_notifications(appointment, 'status_update', old_status)
-            
-            logger.info(f"Appointment {appointment_id} status updated to {new_status}")
-            return appointment
-
-        except Exception as e:
-            logger.error(f"Error updating appointment status: {str(e)}")
-            db.session.rollback()
-            raise
-
-    @staticmethod
     def send_appointment_notifications(appointment, notification_type, old_status=None):
         """Send notifications about appointment changes"""
         try:
             # Send to client
             client_msg = Message(
-                subject=f'KIT CONSULTING - Actualización de Cita',
+                subject='KIT CONSULTING - Confirmación de Cita',  # Spanish subject
                 sender=current_app.config['MAIL_USERNAME'],
                 recipients=[appointment.email]
             )
 
             # Send to admin
             admin_msg = Message(
-                subject=f'KIT CONSULTING - Nueva Actualización de Cita',
+                subject=f'KIT CONSULTING - Nueva Cita: {appointment.name}',
                 sender=current_app.config['MAIL_USERNAME'],
-                recipients=['info@navegatel.org']
+                recipients=[current_app.config['MAIL_USERNAME']]
             )
 
             if notification_type == 'created':
@@ -101,14 +76,20 @@ class AppointmentManager:
             elif notification_type == 'status_update':
                 template = 'email/appointment_status_update.html'
 
+            # Format date in Spanish
+            date_obj = datetime.strptime(f"{appointment.date} {appointment.time}", '%Y-%m-%d %H:%M')
+            formatted_date = date_obj.strftime('%d/%m/%Y')
+
             context = {
                 'name': appointment.name,
                 'service': appointment.service,
-                'date': appointment.date.strftime('%d/%m/%Y'),
+                'date': formatted_date,
                 'time': appointment.time,
                 'status': appointment.status,
                 'old_status': old_status,
-                'contact_email': current_app.config['MAIL_USERNAME']
+                'contact_email': current_app.config['MAIL_USERNAME'],
+                'cancel_url': f"{current_app.config['BASE_URL']}/cancel/{appointment.id}",
+                'reschedule_url': f"{current_app.config['BASE_URL']}/reschedule/{appointment.id}"
             }
 
             client_msg.html = render_template(template, **context)
@@ -158,42 +139,3 @@ class AppointmentManager:
         except Exception as e:
             logger.error(f"Error getting available slots for {date_str}: {str(e)}")
             raise
-
-    @staticmethod
-    def get_next_available_dates(days=7):
-        """Get next available business days in Elche, Alicante"""
-        available_dates = []
-        current_date = datetime.now().date()
-        
-        while len(available_dates) < days:
-            if current_date.weekday() < 5:  # Monday = 0, Friday = 4
-                available_dates.append(current_date)
-            current_date += timedelta(days=1)
-            
-        return available_dates
-
-    @staticmethod
-    def get_appointments_by_status(status=None):
-        """Get appointments filtered by status"""
-        try:
-            query = Appointment.query
-            if status:
-                query = query.filter_by(status=status)
-            return query.order_by(Appointment.date, Appointment.time).all()
-        except Exception as e:
-            logger.error(f"Error retrieving appointments by status: {str(e)}")
-            return []
-
-    @staticmethod
-    def get_appointments_by_date_range(start_date, end_date, status=None):
-        """Get appointments within a date range and optionally filtered by status"""
-        try:
-            query = Appointment.query.filter(
-                Appointment.date.between(start_date, end_date)
-            )
-            if status:
-                query = query.filter_by(status=status)
-            return query.order_by(Appointment.date, Appointment.time).all()
-        except Exception as e:
-            logger.error(f"Error retrieving appointments in date range: {str(e)}")
-            return []
