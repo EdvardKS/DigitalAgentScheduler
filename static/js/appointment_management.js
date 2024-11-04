@@ -35,7 +35,7 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(response => {
                 if (response.status === 401) {
                     pinModal.show();
-                    throw new Error('PIN verification required');
+                    throw new Error('Se requiere verificación PIN');
                 }
                 return response.json();
             })
@@ -46,7 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error loading appointments. Please try again.');
+                alert('Error al cargar las citas. Por favor, intente nuevamente.');
             });
     }
 
@@ -71,7 +71,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${appointment.email}</td>
                 <td>${appointment.service}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary edit-appointment" data-id="${appointment.id}">
+                    <button class="btn btn-sm btn-outline-danger edit-appointment" data-id="${appointment.id}">
                         <i data-feather="edit-2"></i>
                     </button>
                     <button class="btn btn-sm btn-danger delete-appointment" data-id="${appointment.id}">
@@ -133,18 +133,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 editModal.hide();
                 loadAppointments();
             } else {
-                alert(data.error || 'Error updating appointment');
+                alert(data.error || 'Error al actualizar la cita');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error updating appointment. Please try again.');
+            alert('Error al actualizar la cita. Por favor, intente nuevamente.');
         });
     });
 
     // Delete appointment
     function deleteAppointment(id) {
-        if (confirm('Are you sure you want to delete this appointment?')) {
+        if (confirm('¿Está seguro de que desea eliminar esta cita?')) {
             fetch(`/api/appointments/${id}`, {
                 method: 'DELETE'
             })
@@ -153,15 +153,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.message) {
                     loadAppointments();
                 } else {
-                    alert(data.error || 'Error deleting appointment');
+                    alert(data.error || 'Error al eliminar la cita');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error deleting appointment. Please try again.');
+                alert('Error al eliminar la cita. Por favor, intente nuevamente.');
             });
         }
     }
+
+    // Handle Enter key in PIN input
+    document.getElementById('pinInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('verifyPin').click();
+        }
+    });
 
     // Refresh appointments
     document.getElementById('refreshAppointments').addEventListener('click', loadAppointments);

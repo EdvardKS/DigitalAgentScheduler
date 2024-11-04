@@ -6,18 +6,18 @@
     <div class="modal fade" id="pinModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Appointment Management Authentication</h5>
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title">Autenticación del Panel de Gestión</h5>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="pinInput">Enter PIN</label>
+                        <label for="pinInput">Ingrese el PIN</label>
                         <input type="password" class="form-control" id="pinInput" maxlength="4">
-                        <div class="invalid-feedback">Invalid PIN</div>
+                        <div class="invalid-feedback">PIN inválido</div>
                     </div>
                 </div>
                 <div class="modal-footer">
-                    <button type="button" class="btn btn-primary" id="verifyPin">Verify</button>
+                    <button type="button" class="btn btn-danger" id="verifyPin">Verificar</button>
                 </div>
             </div>
         </div>
@@ -25,14 +25,14 @@
 
     <!-- Main Dashboard Content -->
     <div id="dashboardContent" style="display: none;">
-        <h2>Appointment Management</h2>
+        <h2 class="text-danger mb-4">Panel de Gestión de Citas</h2>
         
         <!-- Summary Cards -->
         <div class="row mb-4">
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Total Appointments</h5>
+                        <h5 class="card-title">Total de Citas</h5>
                         <p class="display-4" id="totalAppointments">0</p>
                     </div>
                 </div>
@@ -40,7 +40,7 @@
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Today's Appointments</h5>
+                        <h5 class="card-title">Citas de Hoy</h5>
                         <p class="display-4" id="todayAppointments">0</p>
                     </div>
                 </div>
@@ -48,7 +48,7 @@
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Upcoming Appointments</h5>
+                        <h5 class="card-title">Próximas Citas</h5>
                         <p class="display-4" id="upcomingAppointments">0</p>
                     </div>
                 </div>
@@ -57,11 +57,11 @@
 
         <!-- Appointments Table -->
         <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Appointments</h5>
+            <div class="card-header d-flex justify-content-between align-items-center bg-danger text-white">
+                <h5 class="mb-0">Citas Programadas</h5>
                 <div>
-                    <button class="btn btn-sm btn-danger" id="refreshAppointments">
-                        <i data-feather="refresh-cw"></i> Refresh
+                    <button class="btn btn-light btn-sm" id="refreshAppointments">
+                        <i data-feather="refresh-cw"></i> Actualizar
                     </button>
                 </div>
             </div>
@@ -70,12 +70,12 @@
                     <table class="table">
                         <thead>
                             <tr>
-                                <th>Date</th>
-                                <th>Time</th>
-                                <th>Name</th>
+                                <th>Fecha</th>
+                                <th>Hora</th>
+                                <th>Nombre</th>
                                 <th>Email</th>
-                                <th>Service</th>
-                                <th>Actions</th>
+                                <th>Servicio</th>
+                                <th>Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="appointmentsTableBody">
@@ -91,15 +91,15 @@
 <div class="modal fade" id="editAppointmentModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Edit Appointment</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Editar Cita</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
                 <form id="editAppointmentForm">
                     <input type="hidden" id="editAppointmentId">
                     <div class="mb-3">
-                        <label for="editName" class="form-label">Name</label>
+                        <label for="editName" class="form-label">Nombre</label>
                         <input type="text" class="form-control" id="editName" required>
                     </div>
                     <div class="mb-3">
@@ -107,13 +107,13 @@
                         <input type="email" class="form-control" id="editEmail" required>
                     </div>
                     <div class="mb-3">
-                        <label for="editDate" class="form-label">Date</label>
+                        <label for="editDate" class="form-label">Fecha</label>
                         <input type="date" class="form-control" id="editDate" required>
                     </div>
                     <div class="mb-3">
-                        <label for="editTime" class="form-label">Time</label>
+                        <label for="editTime" class="form-label">Hora</label>
                         <select class="form-control" id="editTime" required>
-                            <option value="">Select time</option>
+                            <option value="">Seleccionar hora</option>
                             <option value="10:30">10:30</option>
                             <option value="11:00">11:00</option>
                             <option value="11:30">11:30</option>
@@ -125,19 +125,19 @@
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label for="editService" class="form-label">Service</label>
+                        <label for="editService" class="form-label">Servicio</label>
                         <select class="form-control" id="editService" required>
-                            <option value="">Select service</option>
-                            <option value="AI Development">AI Development</option>
-                            <option value="AI Consulting">AI Consulting</option>
-                            <option value="Web Development">Web Development</option>
+                            <option value="">Seleccionar servicio</option>
+                            <option value="AI Development">Desarrollo IA</option>
+                            <option value="AI Consulting">Consultoría IA</option>
+                            <option value="Web Development">Desarrollo Web</option>
                         </select>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveAppointmentChanges">Save Changes</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="saveAppointmentChanges">Guardar Cambios</button>
             </div>
         </div>
     </div>
