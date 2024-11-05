@@ -163,29 +163,7 @@ def detect_appointment_intent(message):
         r'(?:puedo|podría|podrías)\s+(?:reservar|agendar)\s+(?:ahora|ya)',
         r'reservar?\s+(?:una|la)\s+(?:cita|consulta)',
         r'agendar?\s+(?:una|la)\s+(?:cita|reunión)',
-        r'programar?\s+(?:una|la)\s+(?:cita|consulta)',
-        r'quiero\s+(?:pedir|pillar)\s+(?:una|la)\s+(?:cita|consulta)',
-        r'déjame\s+una\s+cita', 
-        r'necesito\s+una\s+cita',
-        r'dame\s+(?:una|la)\s+(?:cita|consulta|reunión)',
-        r'ponme\s+una\s+cita', 
-        r'cómo\s+(?:hacer|pedir)\s+una\s+cita',
-        r'pídeme\s+una\s+cita',
-        r'pa\s+cuando\s+(?:una|la)\s+cita', 
-        r'dónde\s+(?:reservar|agendar)\s+cita',
-        r'oye,\s+(?:puedes|podrías|quiero)\s+una\s+cita',
-        r'para\s+cuándo\s+la\s+(?:cita|consulta|reunión)',
-        r'necesito\s+hablar\s+con\s+alguien',
-        r'quiero\s+hablar\s+con\s+alguien\s+ya',
-        r'hazme\s+una\s+cita',
-        r'necesito\s+ver\s+a\s+alguien\s+ya',
-        r'cuándo\s+me\s+pueden\s+dar\s+cita',
-        r'quiero\s+hablar\s+con\s+alguien\s+en\s+persona',
-        r'a\s+qué\s+hora\s+me\s+pasan\s+a\s+cita',
-        r'me\s+tocaría\s+cita\s+o\s+consulta',
-        r'ponme\s+en\s+agenda',
-        r'necesito\s+que\s+me\s+agenden\s+una\s+cita',
-        r'dónde\s+es\s+la\s+cita\s+que\s+me\s+dieron'
+        r'programar?\s+(?:una|la)\s+(?:cita|consulta)'
     ]
     
     # Direct booking keywords - explicit intent only
