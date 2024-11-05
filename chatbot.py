@@ -8,7 +8,6 @@ from dotenv import load_dotenv
 import re
 import json
 import locale
-from sqlalchemy.exc import SQLAlchemyError
 
 # Set locale for Spanish date formatting
 try:
@@ -39,6 +38,18 @@ SERVICES = [
     "Estrategia y Rendimiento de Negocio"
 ]
 
+def get_missing_fields_prompt(missing_fields):
+    """Generate natural conversation prompts for missing fields"""
+    prompts = {
+        'name': "¿Me podrías decir tu nombre completo?",
+        'email': "¿Cuál es tu correo electrónico para enviarte la confirmación?",
+        'phone': "¿Me proporcionas un número de teléfono de contacto? (opcional)",
+        'service': "¿Qué servicio te interesa?\n1. Inteligencia Artificial\n2. Ventas Digitales\n3. Estrategia y Rendimiento",
+        'date': "¿Para qué fecha te gustaría programar la cita?",
+        'time': "¿En qué horario prefieres la cita?"
+    }
+    return "\n".join(prompts[field] for field in missing_fields)
+
 def detect_appointment_intent(conversation_history):
     """Use OpenAI to analyze conversation and detect booking intent"""
     try:
@@ -46,10 +57,10 @@ def detect_appointment_intent(conversation_history):
             {
                 "role": "system",
                 "content": (
-                    "You are a booking intent analyzer. Analyze the conversation "
-                    "and determine if the user is trying to schedule an appointment. "
-                    "Consider both explicit and implicit booking requests. "
-                    "Respond with either 'true' or 'false'."
+                    "You are a booking intent analyzer for KIT CONSULTING. "
+                    "Analyze the conversation and determine if the user is trying "
+                    "to schedule an appointment. Consider both explicit and implicit "
+                    "booking requests. Respond with either 'true' or 'false'."
                 )
             }
         ]
@@ -107,26 +118,37 @@ def process_appointment_data(conversation_history):
             {
                 "role": "system",
                 "content": (
-                    "Extract appointment booking information from the conversation and format it as a valid JSON object. "
-                    "Required fields: name, email, service preference. Optional: phone number. "
-                    f"Available services: {', '.join(SERVICES)}.\n\n"
-                    "RESPONSE FORMAT REQUIREMENTS:\n"
-                    "1. Must be a valid JSON object\n"
-                    "2. Must include all required fields\n"
-                    "3. Must follow this exact structure:\n"
+                    "You are a booking assistant for KIT CONSULTING. Your task is to extract booking "
+                    "information from conversations.\n\n"
+                    "IMPORTANT INSTRUCTIONS:\n"
+                    "1. Actively look for and extract the following information:\n"
+                    "   - Name: Extract full name\n"
+                    "   - Email: Look for email address\n"
+                    "   - Phone: Extract Spanish format phone number\n"
+                    "   - Service preference: Match against available services\n"
+                    "   - Date: Extract appointment date\n"
+                    "   - Time: Extract appointment time\n\n"
+                    "2. If some information is missing, continue conversation to collect it naturally.\n\n"
+                    "3. Format response as valid JSON with fields:\n"
+                    "   - name\n"
+                    "   - email\n"
+                    "   - phone (optional)\n"
+                    "   - service\n"
+                    "   - date\n"
+                    "   - time\n\n"
+                    "4. Only extract information that's explicitly provided\n\n"
+                    "5. Include 'missing_fields' array for any required data not found\n\n"
+                    "Example response:\n"
                     "{\n"
-                    '  "name": "Full Name",\n'
-                    '  "email": "email@example.com",\n'
-                    '  "phone": "+34666777888",  // Optional, can be null\n'
-                    '  "service": "Service Name",\n'
-                    '  "date": "YYYY-MM-DD",\n'
-                    '  "time": "HH:MM"\n'
+                    '  "name": "Juan García",\n'
+                    '  "email": "juan@email.com",\n'
+                    '  "phone": "+34666777888",\n'
+                    '  "service": "Inteligencia Artificial",\n'
+                    '  "date": "2024-11-06",\n'
+                    '  "time": "10:30",\n'
+                    '  "missing_fields": []\n'
                     "}\n\n"
-                    "If any required field is missing, respond with:\n"
-                    "{\n"
-                    '  "missing_fields": ["field1", "field2"]\n'
-                    "}\n\n"
-                    "IMPORTANT: The response must be a valid JSON string and nothing else."
+                    f"Available services: {', '.join(SERVICES)}"
                 )
             }
         ]
@@ -159,12 +181,11 @@ def process_appointment_data(conversation_history):
             logger.error(f"Error parsing OpenAI response as JSON: {content}")
             return {"success": False, "error": "Invalid response format"}
 
-        # Check for missing fields response
-        if 'missing_fields' in extracted_data:
-            missing = ', '.join(extracted_data['missing_fields'])
+        # Check for missing fields
+        if 'missing_fields' in extracted_data and extracted_data['missing_fields']:
             return {
                 "success": False,
-                "error": f"Faltan los siguientes datos: {missing}",
+                "error": get_missing_fields_prompt(extracted_data['missing_fields']),
                 "missing_fields": extracted_data['missing_fields']
             }
 
@@ -182,9 +203,6 @@ def process_appointment_data(conversation_history):
             "data": extracted_data
         }
 
-    except json.JSONDecodeError as e:
-        logger.error(f"JSON parsing error: {str(e)}")
-        return {"success": False, "error": "Error al procesar los datos de la cita"}
     except Exception as e:
         logger.error(f"Error processing appointment data: {str(e)}")
         return {"success": False, "error": "Error inesperado al procesar la cita"}
@@ -228,19 +246,20 @@ def generate_response(message, conversation_history=None):
             result = process_appointment_data(conversation_history)
             
             if result['success']:
+                data = result['data']
                 # Format confirmation message
                 appointment_details = (
                     "<strong>He detectado los siguientes detalles para tu cita:</strong>\n\n"
-                    f"Nombre: {result['data']['name']}\n"
-                    f"Email: {result['data']['email']}\n"
-                    f"Teléfono: {result['data'].get('phone', 'No proporcionado')}\n"
-                    f"Servicio: {result['data']['service']}\n"
-                    f"Fecha: {result['data']['date']}\n"
-                    f"Hora: {result['data']['time']}\n\n"
+                    f"Nombre: {data['name']}\n"
+                    f"Email: {data['email']}\n"
+                    f"Teléfono: {data.get('phone', 'No proporcionado')}\n"
+                    f"Servicio: {data['service']}\n"
+                    f"Fecha: {data['date']}\n"
+                    f"Hora: {data['time']}\n\n"
                     "¿Los datos son correctos? (Responde 'sí' para confirmar o 'no' para corregir)"
                 )
                 
-                success, appointment = create_appointment(result['data'])
+                success, appointment = create_appointment(data)
                 if success:
                     return (
                         "<strong>¡Tu cita ha sido confirmada!</strong>\n\n"
@@ -254,6 +273,8 @@ def generate_response(message, conversation_history=None):
                         "Por favor, inténtalo de nuevo más tarde."
                     )
             else:
+                if 'missing_fields' in result:
+                    return result['error']
                 return (
                     "<strong>Necesito algunos detalles adicionales para tu cita:</strong>\n\n"
                     f"{result['error']}\n\n"
@@ -265,13 +286,12 @@ def generate_response(message, conversation_history=None):
             {
                 "role": "system",
                 "content": (
-                    "Eres el asistente virtual de Navegatel KIT CONSULTING, especializado en ayudas "
+                    "Eres el asistente virtual de KIT CONSULTING, especializado en ayudas "
                     "gubernamentales para la transformación digital de empresas.\n\n"
                     "REQUISITOS DE ELEGIBILIDAD ESENCIALES:\n"
                     "1. Número de empleados:\n"
                     "   - Mínimo: 10 empleados\n"
                     "   - Máximo: 249 empleados\n"
-                    "   - Si preguntan por menos de 10 o más de 250 empleados: Explicar que no son elegibles\n"
                     "\n2. Segmentos de ayuda:\n"
                     "   - Segmento A (10-49 empleados): hasta 12.000€\n"
                     "   - Segmento B (50-99 empleados): hasta 18.000€\n"
