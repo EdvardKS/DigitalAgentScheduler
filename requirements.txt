@@ -13,11 +13,3 @@ click==8.0.1
 requests==2.26.0
 python-dateutil==2.8.2
 sqlalchemy==1.4.23
-apscheduler
-flask
-flask-mail
-flask-sqlalchemy
-openai
-python-dotenv
-sqlalchemy
-psycopg2-binary
