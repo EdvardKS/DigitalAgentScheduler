@@ -20,3 +20,4 @@ flask-sqlalchemy
 openai
 python-dotenv
 sqlalchemy
+psycopg2-binary

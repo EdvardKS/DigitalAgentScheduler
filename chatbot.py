@@ -271,9 +271,9 @@ def handle_service_selection(user_input, session):
     
     return (
         "<strong>¿Qué servicio te interesa?</strong>\n\n"
-        "1. Inteligencia Artificial (hasta 6.000€)\n"
-        "2. Ventas Digitales (hasta 6.000€)\n"
-        "3. Estrategia y Rendimiento de Negocio (hasta 6.000€)\n\n"
+        "<br>1. Inteligencia Artificial (hasta 6.000€)\n"
+        "<br>2. Ventas Digitales (hasta 6.000€)\n"
+        "<br>3. Estrategia y Rendimiento de Negocio (hasta 6.000€)\n\n"
         "<strong>Por favor, selecciona el número del servicio deseado:</strong>" +
         session.format_state_data()
     )
