@@ -107,15 +107,26 @@ def process_appointment_data(conversation_history):
             {
                 "role": "system",
                 "content": (
-                    "Extract appointment booking information from the conversation. "
-                    "Required fields: name, email, service preference. "
-                    "Optional: phone number. "
-                    f"Available services: {', '.join(SERVICES)}. "
-                    "Format the output as a JSON object with the following structure: "
-                    "{'name': str, 'email': str, 'phone': str or null, 'service': str, "
-                    "'date': 'YYYY-MM-DD', 'time': 'HH:MM'}. "
-                    "If any required field is missing, include a 'missing_fields' array "
-                    "in the response."
+                    "Extract appointment booking information from the conversation and format it as a valid JSON object. "
+                    "Required fields: name, email, service preference. Optional: phone number. "
+                    f"Available services: {', '.join(SERVICES)}.\n\n"
+                    "RESPONSE FORMAT REQUIREMENTS:\n"
+                    "1. Must be a valid JSON object\n"
+                    "2. Must include all required fields\n"
+                    "3. Must follow this exact structure:\n"
+                    "{\n"
+                    '  "name": "Full Name",\n'
+                    '  "email": "email@example.com",\n'
+                    '  "phone": "+34666777888",  // Optional, can be null\n'
+                    '  "service": "Service Name",\n'
+                    '  "date": "YYYY-MM-DD",\n'
+                    '  "time": "HH:MM"\n'
+                    "}\n\n"
+                    "If any required field is missing, respond with:\n"
+                    "{\n"
+                    '  "missing_fields": ["field1", "field2"]\n'
+                    "}\n\n"
+                    "IMPORTANT: The response must be a valid JSON string and nothing else."
                 )
             }
         ]
@@ -131,8 +142,32 @@ def process_appointment_data(conversation_history):
             max_tokens=500
         )
 
-        extracted_data = json.loads(response.choices[0].message.content)
-        
+        # Add response content validation
+        content = response.choices[0].message.content.strip()
+        if not content:
+            logger.error("Empty response from OpenAI")
+            return {"success": False, "error": "Empty response from AI model"}
+
+        # Validate response format
+        if not (content.startswith('{') and content.endswith('}')):
+            logger.error(f"Invalid JSON format in response: {content}")
+            return {"success": False, "error": "Invalid response format"}
+
+        try:
+            extracted_data = json.loads(content)
+        except json.JSONDecodeError as e:
+            logger.error(f"Error parsing OpenAI response as JSON: {content}")
+            return {"success": False, "error": "Invalid response format"}
+
+        # Check for missing fields response
+        if 'missing_fields' in extracted_data:
+            missing = ', '.join(extracted_data['missing_fields'])
+            return {
+                "success": False,
+                "error": f"Faltan los siguientes datos: {missing}",
+                "missing_fields": extracted_data['missing_fields']
+            }
+
         # Validate extracted data
         is_valid, error_message = validate_appointment_data(extracted_data)
         if not is_valid:
@@ -147,12 +182,12 @@ def process_appointment_data(conversation_history):
             "data": extracted_data
         }
 
-    except json.JSONDecodeError:
-        logger.error("Error parsing OpenAI response as JSON")
-        return {"success": False, "error": "Error processing appointment data"}
+    except json.JSONDecodeError as e:
+        logger.error(f"JSON parsing error: {str(e)}")
+        return {"success": False, "error": "Error al procesar los datos de la cita"}
     except Exception as e:
         logger.error(f"Error processing appointment data: {str(e)}")
-        return {"success": False, "error": "Unexpected error processing appointment"}
+        return {"success": False, "error": "Error inesperado al procesar la cita"}
 
 def create_appointment(appointment_data):
     """Create appointment in database and send confirmations"""
