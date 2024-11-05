@@ -125,12 +125,17 @@ class BookingSession:
 def detect_appointment_intent(message):
     """
     Enhanced detection of appointment booking intent with stricter rules
-    and improved handling of eligibility questions
+    and improved handling of greetings and general inquiries
     """
     message_lower = message.lower()
     
-    # Negative patterns - exclude eligibility and general inquiries
+    # Negative patterns - exclude greetings, eligibility and general inquiries
     negative_patterns = [
+        r'^hola',
+        r'^buenos\s+(?:días|tardes|noches)',
+        r'^saludos',
+        r'^(?:qué\s+tal|que\s+tal)',
+        r'^(?:hola\s+)?(?:qué|que)\s+(?:hay|tal)',
         r'tengo\s+\d+\s+empleados',
         r'(?:puedo|podemos|podría)\s+solicitar',
         r'empleados?\s+(?:necesito|requiere|pide)',
@@ -440,7 +445,7 @@ def generate_response(user_message, conversation_history=None):
                     break
 
         # Check if we're in a booking flow or if there's a clear booking intent
-        if current_state != 'INITIAL' or (detect_appointment_intent(user_message) and current_state == 'INITIAL'):
+        if current_state != 'INITIAL' or detect_appointment_intent(user_message):
             session = BookingSession()
             session.state = current_state
             session.data = booking_data
