@@ -1,7 +1,7 @@
 import os
 from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime, time, timedelta
-from chatbot import generate_response
+from chatbot import generate_response, get_available_slots
 from functools import wraps
 from flask_mail import Mail
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email
@@ -10,6 +10,7 @@ from sqlalchemy import func
 import logging
 import re
 from dotenv import load_dotenv
+from collections import defaultdict
 
 # Load environment variables
 load_dotenv()
@@ -22,8 +23,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize rate limiting
-from datetime import datetime, timedelta
-from collections import defaultdict
 request_counts = defaultdict(list)
 RATE_LIMIT = 30  # requests per minute
 RATE_WINDOW = 60  # seconds
@@ -36,11 +35,16 @@ if not app.secret_key:
     logger.error("Flask secret key not found in environment variables")
     raise ValueError("Flask secret key is required")
 
+# PostgreSQL Database Configuration
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
+    "pool_pre_ping": True,  # Enable connection health checks
+    "pool_recycle": 300,    # Recycle connections after 5 minutes
+    "pool_timeout": 30,     # Connection timeout after 30 seconds
+    "pool_size": 10,        # Maximum number of connections
+    "max_overflow": 5       # Maximum number of connections that can be created beyond pool_size
 }
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 # Mail configuration
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
@@ -61,28 +65,6 @@ def check_rate_limit(ip):
     request_counts[ip] = [t for t in request_counts[ip] if now - t < timedelta(seconds=RATE_WINDOW)]
     request_counts[ip].append(now)
     return len(request_counts[ip]) <= RATE_LIMIT
-
-# Validation functions from gestion_citas_bot.py
-def validar_nombre(nombre):
-    return bool(re.match("^[A-Za-zÀ-ÿ\s]{2,100}$", nombre))
-
-def validar_correo(correo):
-    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", correo))
-
-def obtener_disponibilidad():
-    """Get available time slots excluding weekends and past times"""
-    dias_disponibles = []
-    now = datetime.now()
-    
-    # Get next 7 available weekdays
-    current_date = now.date()
-    while len(dias_disponibles) < 7:
-        if current_date.weekday() < 5:  # Monday = 0, Friday = 4
-            dias_disponibles.append(current_date.strftime("%Y-%m-%d"))
-        current_date += timedelta(days=1)
-    
-    horas_disponibles = ["10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00"]
-    return dias_disponibles, horas_disponibles
 
 # Decorator for PIN protection
 def require_pin(f):
@@ -263,6 +245,15 @@ def chatbot_response():
     except Exception as e:
         logger.error(f"Error in chatbot response: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/api/available-slots', methods=['GET'])
+def available_slots():
+    try:
+        slots = get_available_slots()
+        return jsonify({"slots": slots})
+    except Exception as e:
+        logger.error(f"Error getting available slots: {str(e)}")
+        return jsonify({"error": "Error retrieving available slots"}), 500
 
 if __name__ == "__main__":
     with app.app_context():
