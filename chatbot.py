@@ -237,6 +237,47 @@ def get_available_slots():
             logger.error(f"Unexpected error in get_available_slots: {str(e)}")
             raise
 
+def handle_phone_collection(user_input, session):
+    if user_input.lower() == 'saltar':
+        user_input = ''
+    elif not validate_input('phone', user_input):
+        return "Por favor, ingresa un número de teléfono español válido o escribe 'saltar'." + session.format_state_data()
+    
+    session.data['phone'] = user_input
+    session.state = 'SELECTING_SERVICE'
+    return handle_service_selection(None, session)
+
+def handle_service_selection(user_input, session):
+    if user_input is not None:
+        if not validate_input('service', user_input):
+            return "Por favor, selecciona un número válido de la lista." + session.format_state_data()
+        
+        service_index = int(user_input) - 1
+        session.data['service'] = f"{SERVICES[service_index]} (hasta 6.000€)"
+        session.state = 'SELECTING_DATE'
+        
+        slots = get_available_slots()
+        if not slots:
+            return "Lo siento, no hay fechas disponibles en los próximos días." + session.format_state_data()
+        
+        dates_list = "\n".join([f"{i+1}. {slot['formatted_date']}" for i, slot in enumerate(slots)])
+        return (
+            f"Has seleccionado: <strong>{session.data['service']}</strong>\n\n"
+            "<strong>Estas son las fechas disponibles:</strong>\n" +
+            dates_list + "\n\n"
+            "<strong>Por favor, selecciona el número de la fecha que prefieres:</strong>" +
+            session.format_state_data()
+        )
+    
+    return (
+        "<strong>¿Qué servicio te interesa?</strong>\n\n"
+        "1. Inteligencia Artificial (hasta 6.000€)\n"
+        "2. Ventas Digitales (hasta 6.000€)\n"
+        "3. Estrategia y Rendimiento de Negocio (hasta 6.000€)\n\n"
+        "<strong>Por favor, selecciona el número del servicio deseado:</strong>" +
+        session.format_state_data()
+    )
+
 def handle_booking_step(user_input, session):
     """Handle each step of the booking process"""
     try:
@@ -276,43 +317,10 @@ def handle_booking_step(user_input, session):
             )
         
         elif session.state == 'COLLECTING_PHONE':
-            if user_input.lower() == 'saltar':
-                user_input = ''
-            elif not validate_input('phone', user_input):
-                return "Por favor, ingresa un número de teléfono español válido o escribe 'saltar'." + session.format_state_data()
-            
-            session.data['phone'] = user_input
-            session.state = 'SELECTING_SERVICE'
-            
-            return (
-                "<strong>¿Qué servicio te interesa?</strong>\n\n"
-                "1. Inteligencia Artificial (hasta 6.000€)\n"
-                "2. Ventas Digitales (hasta 6.000€)\n"
-                "3. Estrategia y Rendimiento de Negocio (hasta 6.000€)\n\n"
-                "<strong>Por favor, selecciona el número del servicio deseado:</strong>" +
-                session.format_state_data()
-            )
+            return handle_phone_collection(user_input, session)
         
         elif session.state == 'SELECTING_SERVICE':
-            if not validate_input('service', user_input):
-                return "Por favor, selecciona un número válido de la lista." + session.format_state_data()
-            
-            service_index = int(user_input) - 1
-            session.data['service'] = f"{SERVICES[service_index]} (hasta 6.000€)"
-            session.state = 'SELECTING_DATE'
-            
-            slots = get_available_slots()
-            if not slots:
-                return "Lo siento, no hay fechas disponibles en los próximos días." + session.format_state_data()
-            
-            dates_list = "\n".join([f"{i+1}. {slot['formatted_date']}" for i, slot in enumerate(slots)])
-            return (
-                f"Has seleccionado: <strong>{session.data['service']}</strong>\n\n"
-                "<strong>Estas son las fechas disponibles:</strong>\n" +
-                dates_list + "\n\n"
-                "<strong>Por favor, selecciona el número de la fecha que prefieres:</strong>" +
-                session.format_state_data()
-            )
+            return handle_service_selection(user_input, session)
         
         elif session.state == 'SELECTING_DATE':
             if not validate_input('date', user_input):
