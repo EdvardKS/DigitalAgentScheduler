@@ -61,7 +61,7 @@ def validate_input(field_type, value):
     """Validate user input based on field type"""
     if not value:
         return False
-        
+
     if field_type == 'name':
         return bool(re.match("^[A-Za-zÀ-ÿ\s]{2,100}$", value))
     elif field_type == 'email':
@@ -104,11 +104,11 @@ class BookingSession:
     def __init__(self):
         self.state = 'INITIAL'
         self.data = {}
-    
+
     def format_state_data(self):
         """Format state data for internal use"""
         return f"__STATE__{self.state}__DATA__{json.dumps(self.data)}__END__"
-    
+
     @staticmethod
     def extract_state_data(message):
         """Extract state and data from conversation message"""
@@ -128,7 +128,7 @@ def detect_appointment_intent(message):
     and improved handling of greetings and general inquiries
     """
     message_lower = message.lower()
-    
+
     # Negative patterns - exclude greetings, eligibility and general inquiries
     negative_patterns = [
         r'^hola',
@@ -151,10 +151,10 @@ def detect_appointment_intent(message):
         r'consultar?\s+(?:sobre|por)',
         r'(?:me\s+pueden?|pueden?)\s+explicar'
     ]
-    
+
     if any(re.search(pattern, message_lower) for pattern in negative_patterns):
         return False
-    
+
     # Strong booking intent patterns - explicit booking requests only
     booking_patterns = [
         r'(?:quiero|necesito|deseo)\s+(?:reservar|agendar|programar)',
@@ -187,7 +187,7 @@ def detect_appointment_intent(message):
         r'necesito\s+que\s+me\s+agenden\s+una\s+cita',
         r'dónde\s+es\s+la\s+cita\s+que\s+me\s+dieron'
     ]
-    
+
     # Direct booking keywords - explicit intent only
     booking_keywords = [
         'reservar cita',
@@ -196,13 +196,13 @@ def detect_appointment_intent(message):
         'solicitar consulta',
         'hacer una cita'
     ]
-    
+
     if any(keyword in message_lower for keyword in booking_keywords):
         return True
-    
+
     if any(re.search(pattern, message_lower) for pattern in booking_patterns):
         return True
-    
+
     return False
 
 def get_available_slots():
@@ -212,7 +212,7 @@ def get_available_slots():
         try:
             slots = []
             current_date = datetime.now()
-            
+
             with session_scope() as session:
                 # Get next 7 available weekdays
                 for i in range(14):  # Look ahead 14 days to find 7 available slots
@@ -224,31 +224,31 @@ def get_available_slots():
                                 date=check_date.date()
                             ).all()
                         )
-                        
+
                         # Available time slots
                         available_times = []
                         start_time = datetime.strptime("10:30", "%H:%M")
                         end_time = datetime.strptime("14:00", "%H:%M")
                         current_time = start_time
-                        
+
                         while current_time <= end_time:
                             time_str = current_time.strftime("%H:%M")
                             if time_str not in booked_times:
                                 available_times.append(time_str)
                             current_time += timedelta(minutes=30)
-                        
+
                         if available_times:
                             slots.append({
                                 'date': check_date.strftime("%Y-%m-%d"),
                                 'formatted_date': check_date.strftime('%-d de %B de %Y').lower(),
                                 'times': available_times
                             })
-                        
+
                         if len(slots) >= 7:
                             break
-            
+
             return slots
-            
+
         except OperationalError as e:
             retries += 1
             logger.error(f"Database connection error (attempt {retries}/{MAX_RETRIES}): {str(e)}")
@@ -269,7 +269,7 @@ def handle_phone_collection(user_input, session):
         user_input = ''
     elif not validate_input('phone', user_input):
         return "Por favor, ingresa un número de teléfono español válido o escribe 'saltar'." + session.format_state_data()
-    
+
     session.data['phone'] = user_input
     session.state = 'SELECTING_SERVICE'
     return handle_service_selection(None, session)
@@ -278,15 +278,15 @@ def handle_service_selection(user_input, session):
     if user_input is not None:
         if not validate_input('service', user_input):
             return "Por favor, selecciona un número válido de la lista." + session.format_state_data()
-        
+
         service_index = int(user_input) - 1
         session.data['service'] = f"{SERVICES[service_index]} (hasta 6.000€)"
         session.state = 'SELECTING_DATE'
-        
+
         slots = get_available_slots()
         if not slots:
             return "Lo siento, no hay fechas disponibles en los próximos días." + session.format_state_data()
-        
+
         dates_list = "\n".join([f"{i+1}. {slot['formatted_date']}" for i, slot in enumerate(slots)])
         return (
             f"Has seleccionado: <strong>{session.data['service']}</strong>\n\n"
@@ -295,7 +295,7 @@ def handle_service_selection(user_input, session):
             "<strong>Por favor, selecciona el número de la fecha que prefieres:</strong>" +
             session.format_state_data()
         )
-    
+
     return (
         "<strong>¿Qué servicio te interesa?</strong>\n\n"
         "<br>1. Inteligencia Artificial (hasta 6.000€)\n"
@@ -316,11 +316,11 @@ def handle_booking_step(user_input, session):
                 "<strong>Por favor, introduce tu nombre completo:</strong>" +
                 session.format_state_data()
             )
-        
+
         elif session.state == 'COLLECTING_NAME':
             if not validate_input('name', user_input):
                 return "Por favor, ingresa un nombre válido usando solo letras." + session.format_state_data()
-            
+
             session.data['name'] = user_input
             session.state = 'COLLECTING_EMAIL'
             return (
@@ -329,11 +329,11 @@ def handle_booking_step(user_input, session):
                 "la confirmación de la cita:</strong>" +
                 session.format_state_data()
             )
-        
+
         elif session.state == 'COLLECTING_EMAIL':
             if not validate_input('email', user_input):
                 return "Por favor, ingresa un correo electrónico válido." + session.format_state_data()
-            
+
             session.data['email'] = user_input
             session.state = 'COLLECTING_PHONE'
             return (
@@ -342,28 +342,28 @@ def handle_booking_step(user_input, session):
                 "(Este campo es opcional, puedes escribir 'saltar' para continuar)" +
                 session.format_state_data()
             )
-        
+
         elif session.state == 'COLLECTING_PHONE':
             return handle_phone_collection(user_input, session)
-        
+
         elif session.state == 'SELECTING_SERVICE':
             return handle_service_selection(user_input, session)
-        
+
         elif session.state == 'SELECTING_DATE':
             if not validate_input('date', user_input):
                 return "Por favor, selecciona un número válido de la lista." + session.format_state_data()
-            
+
             slots = get_available_slots()
             date_index = int(user_input) - 1
-            
+
             if date_index < 0 or date_index >= len(slots):
                 return "Por favor, selecciona un número válido de la lista." + session.format_state_data()
-            
+
             selected_date = slots[date_index]
             session.data['date'] = selected_date['date']
             session.data['formatted_date'] = selected_date['formatted_date']
             session.state = 'SELECTING_TIME'
-            
+
             times_list = "\n".join([f"{i+1}. {time}" for i, time in enumerate(selected_date['times'])])
             return (
                 f"Has seleccionado el <strong>{selected_date['formatted_date']}</strong>.\n\n"
@@ -372,21 +372,21 @@ def handle_booking_step(user_input, session):
                 "<strong>Por favor, selecciona el número del horario que prefieres:</strong>" +
                 session.format_state_data()
             )
-        
+
         elif session.state == 'SELECTING_TIME':
             slots = get_available_slots()
             selected_slot = next(
                 slot for slot in slots 
                 if slot['date'] == session.data['date']
             )
-            
+
             time_index = int(user_input) - 1
             if time_index < 0 or time_index >= len(selected_slot['times']):
                 return "Por favor, selecciona un número válido de la lista." + session.format_state_data()
-            
+
             session.data['time'] = selected_slot['times'][time_index]
             session.state = 'CONFIRMATION'
-            
+
             return (
                 "<strong>Resumen de tu cita:</strong>\n\n"
                 f"Nombre: {session.data['name']}\n"
@@ -398,7 +398,7 @@ def handle_booking_step(user_input, session):
                 "<strong>¿Los datos son correctos?</strong> (Responde 'sí' para confirmar o 'no' para cancelar)" +
                 session.format_state_data()
             )
-        
+
         elif session.state == 'CONFIRMATION':
             if user_input.lower() in ['si', 'sí', 'yes']:
                 try:
@@ -412,10 +412,10 @@ def handle_booking_step(user_input, session):
                     )
                     db.session.add(appointment)
                     db.session.commit()
-                    
+
                     send_appointment_confirmation(appointment)
                     schedule_reminder_email(appointment)
-                    
+
                     return (
                         "<strong>¡Tu cita ha sido confirmada!</strong>\n\n"
                         "Te hemos enviado un correo electrónico con los detalles.\n"
@@ -434,9 +434,9 @@ def handle_booking_step(user_input, session):
                     "<strong>De acuerdo, he cancelado la reserva.</strong>\n\n"
                     "¿Hay algo más en lo que pueda ayudarte?\n\nBOOKING_CANCELLED"
                 )
-        
+
         return "Lo siento, ha ocurrido un error. Por favor, intenta de nuevo." + session.format_state_data()
-        
+
     except Exception as e:
         logger.error(f"Error in booking process: {str(e)}")
         return (
