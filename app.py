@@ -201,6 +201,43 @@ def update_appointment(appointment_id):
         logger.error(f"Error updating appointment: {str(e)}")
         return jsonify({"error": "Error updating appointment"}), 500
 
+@app.route('/api/contact', methods=['POST'])
+def handle_contact_form():
+    try:
+        data = request.get_json()
+        
+        # Validate required fields
+        required_fields = ['nombre', 'email', 'telefono']
+        for field in required_fields:
+            if not data.get(field):
+                return jsonify({"error": f"Campo requerido: {field}"}), 400
+
+        # Create new appointment
+        appointment = Appointment(
+            name=data['nombre'],
+            email=data['email'],
+            phone=data['telefono'],
+            date=datetime.now().date() + timedelta(days=1),  # Schedule for tomorrow by default
+            time="10:30",  # Default time slot
+            service="Consulta General",  # Default service
+            status="Pendiente",
+            created_at=datetime.utcnow()
+        )
+
+        db.session.add(appointment)
+        db.session.commit()
+        logger.info(f"New contact form submission created: {appointment.id}")
+
+        # Send confirmation email
+        send_appointment_confirmation(appointment)
+        schedule_reminder_email(appointment)
+
+        return jsonify({"message": "Formulario enviado exitosamente"}), 200
+
+    except Exception as e:
+        logger.error(f"Error processing contact form: {str(e)}")
+        return jsonify({"error": "Error al procesar el formulario"}), 500
+
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot_response():
     client_ip = request.remote_addr
