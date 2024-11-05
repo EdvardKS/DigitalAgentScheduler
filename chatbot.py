@@ -75,39 +75,47 @@ class BookingSession:
 def detect_appointment_intent(message):
     """
     Enhanced detection of appointment booking intent with stricter rules
-    and negative pattern matching for eligibility questions
+    and improved handling of eligibility questions
     """
     message_lower = message.lower()
     
     # Negative patterns - exclude eligibility and general inquiries
     negative_patterns = [
+        # Employee-related questions
+        r'tengo\s+\d+\s+empleados',
+        r'(?:puedo|podemos|podría)\s+solicitar',
+        r'empleados?\s+(?:necesito|requiere|pide)',
+        r'(?:soy|somos)\s+elegibles?',
+        r'(?:cumplimos?|cumplo)\s+(?:con|los)\s+requisitos',
+        r'(?:cuántos|cuantos)\s+empleados',
+        
+        # General inquiry patterns
         r'(?:cuanto|cuánto)\s+(?:cuesta|vale|es)',
         r'(?:que|qué)\s+(?:es|son|incluye)',
         r'(?:como|cómo)\s+(?:funciona|aplica)',
+        r'información\s+(?:sobre|del|de)',
         r'requisitos',
-        r'empleados?\s+(?:necesito|requiere|pide)',
-        r'información',
-        r'duda',
-        r'tengo\s+\d+\s+empleados',
-        r'(?:puedo|podemos|podría)\s+solicitar',
-        r'(?:cuántos|cuantos)\s+empleados',
-        r'(?:soy|somos)\s+elegibles?',
-        r'(?:cumplimos?|cumplo)\s+(?:con|los)\s+requisitos'
+        r'dudas?',
+        r'consultar?\s+(?:sobre|por)',
+        r'(?:me\s+pueden?|pueden?)\s+explicar'
     ]
     
     # If message matches any negative pattern, it's likely a general question
     if any(re.search(pattern, message_lower) for pattern in negative_patterns):
         return False
     
-    # Strong booking intent patterns
+    # Strong booking intent patterns - explicit booking requests only
     booking_patterns = [
         r'(?:quiero|necesito|deseo)\s+(?:reservar|agendar|programar)',
         r'(?:hacer|solicitar)\s+(?:una|la)\s+(?:cita|consulta|reunión)',
         r'(?:me\s+gustaría|quisiera)\s+(?:tener|agendar)\s+(?:una|la)\s+(?:cita|consulta)',
         r'(?:puedo|podría|podrías)\s+(?:reservar|agendar)\s+(?:ahora|ya)',
+        r'reservar?\s+(?:una|la)\s+(?:cita|consulta)',
+        r'agendar?\s+(?:una|la)\s+(?:cita|reunión)',
+        r'programar?\s+(?:una|la)\s+(?:cita|consulta)'
     ]
     
-    # Direct booking keywords with context
+    # Direct booking keywords - explicit intent only
     booking_keywords = [
         'reservar cita',
         'agendar cita',
@@ -116,7 +124,7 @@ def detect_appointment_intent(message):
         'hacer una cita'
     ]
     
-    # Check for strong booking intent
+    # Check for explicit booking intent
     if any(keyword in message_lower for keyword in booking_keywords):
         return True
     
@@ -156,11 +164,15 @@ def get_available_slots():
                 
                 # Available time slots
                 available_times = []
-                for hour in range(10, 15):
-                    for minute in [0, 30]:
-                        time_str = f"{hour:02d}:{minute:02d}"
-                        if time_str not in booked_times:
-                            available_times.append(time_str)
+                start_time = datetime.strptime("10:30", "%H:%M")
+                end_time = datetime.strptime("14:00", "%H:%M")
+                current_time = start_time
+                
+                while current_time <= end_time:
+                    time_str = current_time.strftime("%H:%M")
+                    if time_str not in booked_times:
+                        available_times.append(time_str)
+                    current_time += timedelta(minutes=30)
                 
                 if available_times:
                     slots.append({
@@ -376,14 +388,6 @@ def generate_response(user_message, conversation_history=None):
                     booking_data = data or {}
                     break
 
-        # Check for booking completion or cancellation
-        if current_state != 'INITIAL':
-            last_bot_message = next((msg['text'] for msg in reversed(conversation_history) 
-                                   if not msg.get('is_user', True)), '')
-            if 'BOOKING_COMPLETE' in last_bot_message or 'BOOKING_CANCELLED' in last_bot_message:
-                current_state = 'INITIAL'
-                booking_data = {}
-
         # Only start booking flow if we have a clear booking intent
         # and we're not already in a booking state
         if current_state != 'INITIAL' or (detect_appointment_intent(user_message) and current_state == 'INITIAL'):
@@ -392,36 +396,43 @@ def generate_response(user_message, conversation_history=None):
             session.data = booking_data
             return handle_booking_step(user_message, session)
 
-        # Enhanced system prompt for better context awareness and eligibility handling
+        # Enhanced system prompt to handle eligibility questions
         messages = [
             {
                 "role": "system",
                 "content": (
                     "Eres el asistente virtual de KIT CONSULTING, especializado en ayudas "
-                    "gubernamentales para la transformación digital de empresas. "
-                    "\n\nREQUISITOS DE ELEGIBILIDAD:\n"
-                    "- Empleados: Mínimo 10 empleados, máximo 249\n"
-                    "- Domicilio fiscal en territorio español\n"
-                    "- Estar inscrito en el censo de empresarios\n"
-                    "- No tener consideración de empresa en crisis\n"
-                    "\n\nSEGMENTOS DE AYUDA:\n"
-                    "- Segmento A (10-49 empleados): hasta 12.000€\n"
-                    "- Segmento B (50-99 empleados): hasta 18.000€\n"
-                    "- Segmento C (100-249 empleados): hasta 24.000€\n"
-                    "\n\nRESPUESTAS PARA CASOS ESPECÍFICOS:\n"
-                    "1. Empresas con menos de 10 empleados:\n"
-                    "   - 'Lo siento, actualmente el programa KIT CONSULTING está diseñado para "
+                    "gubernamentales para la transformación digital de empresas.\n\n"
+                    "REQUISITOS DE ELEGIBILIDAD ESENCIALES:\n"
+                    "1. Número de empleados:\n"
+                    "   - Mínimo: 10 empleados\n"
+                    "   - Máximo: 249 empleados\n"
+                    "   - Si preguntan por menos de 10 empleados: Explicar que no son elegibles\n"
+                    "\n2. Segmentos de ayuda:\n"
+                    "   - Segmento A (10-49 empleados): hasta 12.000€\n"
+                    "   - Segmento B (50-99 empleados): hasta 18.000€\n"
+                    "   - Segmento C (100-249 empleados): hasta 24.000€\n"
+                    "\n3. Otros requisitos:\n"
+                    "   - Domicilio fiscal en España\n"
+                    "   - Estar inscrito en el censo de empresarios\n"
+                    "   - No tener consideración de empresa en crisis\n"
+                    "   - Estar al corriente con obligaciones tributarias\n"
+                    "\nRESPUESTAS ESPECÍFICAS:\n"
+                    "1. Para empresas con menos de 10 empleados:\n"
+                    "   'Lo siento, actualmente el programa KIT CONSULTING está diseñado para "
                     "empresas con 10 o más empleados. Para empresas más pequeñas, te recomiendo "
-                    "explorar el Kit Digital, que ofrece ayudas específicas para empresas de menor tamaño.'\n\n"
-                    "2. Consultas sobre elegibilidad:\n"
-                    "   - Menciona TODOS los requisitos\n"
-                    "   - Especifica el segmento correspondiente\n"
-                    "   - Indica el importe máximo de ayuda\n\n"
-                    "3. Consultas sobre servicios:\n"
-                    "   - Detalla los servicios disponibles\n"
-                    "   - Menciona los importes máximos\n"
-                    "   - Explica el proceso de solicitud\n\n"
-                    "Mantén un tono profesional y asegúrate de proporcionar información completa y precisa."
+                    "explorar el Kit Digital, que ofrece ayudas específicas para empresas de menor tamaño.'\n"
+                    "\n2. Para preguntas sobre empleados:\n"
+                    "   - Explicar claramente el requisito mínimo de 10 empleados\n"
+                    "   - Detallar el segmento correspondiente y la ayuda disponible\n"
+                    "\n3. Para consultas generales:\n"
+                    "   - Proporcionar información clara y estructurada\n"
+                    "   - Mencionar todos los requisitos relevantes\n"
+                    "   - Sugerir agendar una consulta solo si la empresa cumple los requisitos\n"
+                    "\nRECUERDA:\n"
+                    "- Ser claro y directo sobre los requisitos\n"
+                    "- No sugerir agendar citas a empresas que no cumplen los criterios\n"
+                    "- Mantener un tono profesional y empático"
                 )
             }
         ]
@@ -429,10 +440,7 @@ def generate_response(user_message, conversation_history=None):
         # Add conversation history
         for msg in conversation_history:
             role = "user" if msg.get('is_user', True) else "assistant"
-            content = msg['text']
-            if role == "assistant" and '__STATE__' in content:
-                content = content.split('__STATE__')[0].strip()
-            messages.append({"role": role, "content": content})
+            messages.append({"role": role, "content": msg['text']})
 
         messages.append({"role": "user", "content": user_message})
 
@@ -447,6 +455,7 @@ def generate_response(user_message, conversation_history=None):
         response = completion.choices[0].message.content.strip()
 
         # Only suggest booking for eligible companies
+        # Avoid suggesting booking if the message contains numbers less than 10 or non-eligibility keywords
         if ("elegible" in response.lower() and 
             "no" not in response.lower() and 
             not any(keyword in user_message.lower() for keyword in ["menos", "9", "8", "7", "6", "5", "4", "3", "2", "1"])):
