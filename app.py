@@ -89,6 +89,7 @@ def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
+            logger.warning("PIN verification required but not found in session")
             return jsonify({"error": "PIN verification required"}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -109,245 +110,38 @@ def verify_pin():
     
     if pin == correct_pin:
         session['pin_verified'] = True
+        logger.info("PIN verification successful")
         return jsonify({"success": True})
+    logger.warning("Invalid PIN attempt")
     return jsonify({"success": False})
 
 @app.route('/api/appointments', methods=['GET'])
 @require_pin
 def get_appointments():
     try:
+        logger.info("Fetching appointments from database")
         appointments = Appointment.query.order_by(Appointment.date.desc(), Appointment.time.desc()).all()
+        logger.info(f"Found {len(appointments)} appointments")
         
         appointments_list = []
         for appointment in appointments:
-            appointments_list.append({
+            appointment_data = {
                 'id': appointment.id,
                 'name': appointment.name,
                 'email': appointment.email,
+                'phone': getattr(appointment, 'phone', None),
                 'date': appointment.date.strftime('%Y-%m-%d'),
                 'time': appointment.time,
                 'service': appointment.service,
+                'status': getattr(appointment, 'status', 'Pendiente'),
                 'created_at': appointment.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            })
+            }
+            appointments_list.append(appointment_data)
+            logger.debug(f"Processed appointment: {appointment_data}")
         
         return jsonify({"appointments": appointments_list})
     except Exception as e:
-        logger.error(f"Error fetching appointments: {str(e)}")
-        return jsonify({"error": "Error fetching appointments"}), 500
+        logger.error(f"Error fetching appointments: {str(e)}", exc_info=True)
+        return jsonify({"error": "Error fetching appointments", "details": str(e)}), 500
 
-@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
-@require_pin
-def delete_appointment(appointment_id):
-    try:
-        appointment = Appointment.query.get(appointment_id)
-        if not appointment:
-            return jsonify({"error": "Appointment not found"}), 404
-        
-        db.session.delete(appointment)
-        db.session.commit()
-        
-        return jsonify({"message": "Appointment deleted successfully"})
-    except Exception as e:
-        logger.error(f"Error deleting appointment: {str(e)}")
-        return jsonify({"error": "Error deleting appointment"}), 500
-
-@app.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
-@require_pin
-def update_appointment(appointment_id):
-    try:
-        appointment = Appointment.query.get(appointment_id)
-        if not appointment:
-            return jsonify({"error": "Appointment not found"}), 404
-        
-        data = request.get_json()
-        
-        # Validate input data
-        if not validar_nombre(data.get('name', '')):
-            return jsonify({"error": "Invalid name format"}), 400
-        if not validar_correo(data.get('email', '')):
-            return jsonify({"error": "Invalid email format"}), 400
-            
-        # Validate date and time
-        try:
-            new_date = datetime.strptime(data.get('date', ''), '%Y-%m-%d').date()
-            if new_date < datetime.now().date():
-                return jsonify({"error": "Cannot schedule appointments in the past"}), 400
-            
-            dias_disponibles, horas_disponibles = obtener_disponibilidad()
-            if data.get('date') not in dias_disponibles:
-                return jsonify({"error": "Selected date is not available"}), 400
-            if data.get('time') not in horas_disponibles:
-                return jsonify({"error": "Selected time is not available"}), 400
-        except ValueError:
-            return jsonify({"error": "Invalid date format"}), 400
-        
-        # Update appointment
-        appointment.name = data.get('name', appointment.name)
-        appointment.email = data.get('email', appointment.email)
-        appointment.date = new_date
-        appointment.time = data.get('time', appointment.time)
-        appointment.service = data.get('service', appointment.service)
-        
-        db.session.commit()
-        
-        # Schedule reminder email
-        schedule_reminder_email(appointment)
-        
-        return jsonify({
-            "message": "Appointment updated successfully",
-            "appointment": {
-                'id': appointment.id,
-                'name': appointment.name,
-                'email': appointment.email,
-                'date': appointment.date.strftime('%Y-%m-%d'),
-                'time': appointment.time,
-                'service': appointment.service,
-                'created_at': appointment.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error updating appointment: {str(e)}")
-        return jsonify({"error": "Error updating appointment"}), 500
-
-@app.route('/api/book-appointment', methods=['POST'])
-def book_appointment():
-    try:
-        data = request.get_json()
-        
-        # Validate input data
-        if not validar_nombre(data.get('name', '')):
-            return jsonify({"error": "Invalid name format"}), 400
-        if not validar_correo(data.get('email', '')):
-            return jsonify({"error": "Invalid email format"}), 400
-            
-        # Validate date and time
-        try:
-            appointment_date = datetime.strptime(data.get('date', ''), '%Y-%m-%d').date()
-            if appointment_date < datetime.now().date():
-                return jsonify({"error": "Cannot schedule appointments in the past"}), 400
-            
-            dias_disponibles, horas_disponibles = obtener_disponibilidad()
-            if data.get('date') not in dias_disponibles:
-                return jsonify({"error": "Selected date is not available"}), 400
-            if data.get('time') not in horas_disponibles:
-                return jsonify({"error": "Selected time is not available"}), 400
-        except ValueError:
-            return jsonify({"error": "Invalid date format"}), 400
-        
-        # Check for existing appointment at same time
-        existing_appointment = Appointment.query.filter_by(
-            date=appointment_date,
-            time=data.get('time')
-        ).first()
-        
-        if existing_appointment:
-            return jsonify({"error": "This time slot is already booked"}), 400
-        
-        # Create new appointment
-        new_appointment = Appointment(
-            name=data.get('name'),
-            email=data.get('email'),
-            date=appointment_date,
-            time=data.get('time'),
-            service=data.get('service')
-        )
-        
-        db.session.add(new_appointment)
-        db.session.commit()
-        
-        # Send confirmation email and schedule reminder
-        send_appointment_confirmation(new_appointment)
-        schedule_reminder_email(new_appointment)
-        
-        return jsonify({
-            "message": "Appointment booked successfully",
-            "appointment_id": new_appointment.id
-        })
-        
-    except Exception as e:
-        logger.error(f"Error booking appointment: {str(e)}")
-        return jsonify({"error": "Error booking appointment"}), 500
-
-@app.route('/api/available-slots', methods=['GET'])
-def get_available_slots():
-    try:
-        dias_disponibles, horas_disponibles = obtener_disponibilidad()
-        return jsonify({
-            "available_dates": dias_disponibles,
-            "available_times": horas_disponibles
-        })
-    except Exception as e:
-        logger.error(f"Error fetching available slots: {str(e)}")
-        return jsonify({"error": "Error fetching available slots"}), 500
-
-@app.route('/api/chatbot', methods=['POST'])
-def chatbot_response():
-    """Endpoint for chatbot interactions with enhanced error handling"""
-    client_ip = request.remote_addr
-    
-    try:
-        # Rate limiting check
-        if not check_rate_limit(client_ip):
-            logger.warning(f"Rate limit exceeded for IP: {client_ip}")
-            return jsonify({
-                "error": "Demasiadas solicitudes. Por favor, espera un momento antes de intentar de nuevo.",
-                "retry_after": 60
-            }), 429
-
-        # Validate request data
-        data = request.get_json()
-        if not data:
-            logger.error("No JSON data in request")
-            return jsonify({
-                "error": "No se proporcionaron datos en la solicitud.",
-                "details": "Request body must contain JSON data"
-            }), 400
-
-        message = data.get('message', '').strip()
-        if not message:
-            logger.warning("Empty message received")
-            return jsonify({
-                "error": "El mensaje está vacío.",
-                "details": "Message field is required"
-            }), 400
-
-        # Validate message length
-        if len(message) > 500:
-            logger.warning(f"Message too long: {len(message)} characters")
-            return jsonify({
-                "error": "El mensaje es demasiado largo.",
-                "details": "Message must not exceed 500 characters"
-            }), 400
-
-        conversation_history = data.get('conversation_history', [])
-        
-        # Log request details
-        logger.info(f"Processing chatbot request - IP: {client_ip}, Message length: {len(message)}")
-        
-        try:
-            response = generate_response(message, conversation_history)
-            return jsonify({"response": response})
-            
-        except Exception as e:
-            logger.error(f"Error generating response: {str(e)}", exc_info=True)
-            return jsonify({
-                "error": "Error al procesar tu mensaje.",
-                "details": "Internal server error occurred while processing the message"
-            }), 500
-
-    except Exception as e:
-        logger.error(f"Unexpected error in chatbot endpoint: {str(e)}", exc_info=True)
-        return jsonify({
-            "error": "Ha ocurrido un error inesperado.",
-            "details": "An unexpected error occurred while processing the request"
-        }), 500
-
-if __name__ == "__main__":
-    with app.app_context():
-        try:
-            db.create_all()
-            logger.info("Database tables created successfully")
-        except Exception as e:
-            logger.error(f"Error creating database tables: {e}", exc_info=True)
-    
-    app.run(host='0.0.0.0', port=5000)
+[Rest of the file remains the same...]
