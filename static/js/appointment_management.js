@@ -12,6 +12,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show PIN modal on page load
     pinModal.show();
 
+    // Format phone number for display
+    function formatPhoneNumber(phone) {
+        if (!phone) return '-';
+        // Format: XXX XXX XXX
+        return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+    }
+
     // PIN verification
     document.getElementById('verifyPin').addEventListener('click', () => {
         const enteredPin = document.getElementById('pinInput').value;
@@ -193,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${appointment.time}</td>
                 <td>${appointment.name}</td>
                 <td>${appointment.email}</td>
-                <td>${appointment.phone || '-'}</td>
+                <td>${formatPhoneNumber(appointment.phone)}</td>
                 <td>${appointment.service}</td>
                 <td>
                     <span class="badge bg-${getStatusBadgeClass(appointment.status)}">
@@ -298,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const appointmentData = {
             name: document.getElementById('editName').value,
             email: document.getElementById('editEmail').value,
-            phone: document.getElementById('editPhone').value,
+            phone: document.getElementById('editPhone').value.trim() || null,
             date: document.getElementById('editDate').value,
             time: document.getElementById('editTime').value,
             service: document.getElementById('editService').value,
