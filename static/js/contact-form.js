@@ -153,18 +153,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             }
             
-            if (name === 'codigoPostal') {
-                const postalCodeRegex = /^\d{5}$/;
-                if (!postalCodeRegex.test(value)) {
-                    input.classList.add('is-invalid');
-                    const feedback = document.createElement('div');
-                    feedback.className = 'invalid-feedback';
-                    feedback.textContent = 'Código postal inválido';
-                    input.parentNode.appendChild(feedback);
-                    return false;
-                }
-            }
-            
             input.classList.add('is-valid');
             return true;
         };

@@ -88,10 +88,6 @@ def validate_contact_form(data):
         'nombre': 'Nombre es requerido',
         'email': 'Email es requerido',
         'telefono': 'Teléfono es requerido',
-        'direccion': 'Dirección es requerida',
-        'codigoPostal': 'Código Postal es requerido',
-        'ciudad': 'Ciudad es requerida',
-        'provincia': 'Provincia es requerida',
         'dudas': 'Por favor, describe tus dudas'
     }
     
@@ -106,10 +102,6 @@ def validate_contact_form(data):
     # Phone validation (Spanish format)
     if data.get('telefono') and not re.match(r"^(?:\+34|0034|34)?[6789]\d{8}$", data['telefono']):
         errors['telefono'] = 'Número de teléfono inválido'
-    
-    # Postal code validation (Spanish format)
-    if data.get('codigoPostal') and not re.match(r"^\d{5}$", data['codigoPostal']):
-        errors['codigoPostal'] = 'Código postal inválido'
     
     return errors
 
