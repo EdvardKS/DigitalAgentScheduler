@@ -10,17 +10,20 @@
 {% block content %}
 <div class="container mt-4">
     <!-- PIN Authentication Modal -->
-    <div class="modal fade" id="pinModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal fade" id="pinModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="pinModalLabel" aria-hidden="true" {% if show_pin_modal %}data-bs-show="true"{% endif %}>
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">Autenticación del Panel de Gestión</h5>
+                    <h5 class="modal-title" id="pinModalLabel">Autenticación del Panel de Gestión</h5>
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
                         <label for="pinInput" class="form-label">Ingrese el PIN</label>
                         <input type="password" class="form-control" id="pinInput" maxlength="4" autocomplete="off">
-                        <div class="invalid-feedback">PIN inválido</div>
+                        <div class="invalid-feedback">PIN inválido. Por favor, intente de nuevo.</div>
+                    </div>
+                    <div class="alert alert-danger mt-3 d-none" id="pinError">
+                        PIN incorrecto. Por favor, intente de nuevo.
                     </div>
                 </div>
                 <div class="modal-footer">

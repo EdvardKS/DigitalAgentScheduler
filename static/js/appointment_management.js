@@ -1,28 +1,31 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize charts and setup PIN verification
-    const pinModal = new bootstrap.Modal(document.getElementById('pinModal'));
+    // Initialize components
+    const pinModal = new bootstrap.Modal(document.getElementById('pinModal'), {
+        backdrop: 'static',
+        keyboard: false
+    });
     const dashboardContent = document.getElementById('dashboardContent');
-    const editModal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
-    const viewContactModal = new bootstrap.Modal(document.getElementById('viewContactModal'));
-
-    // Pagination settings
-    let currentPage = 1;
-    const itemsPerPage = 10;
-    let filteredAppointments = [];
-    let currentFilter = 'all';
-
-    // Show PIN modal on page load
-    pinModal.show();
-
-    // Format phone number for display
-    function formatPhoneNumber(phone) {
-        if (!phone) return '-';
-        return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+    const pinInput = document.getElementById('pinInput');
+    const pinError = document.getElementById('pinError');
+    
+    // Check if we need to show the PIN modal
+    if (document.getElementById('pinModal').dataset.bsShow === 'true') {
+        pinModal.show();
     }
 
-    // PIN verification
-    document.getElementById('verifyPin').addEventListener('click', () => {
-        const enteredPin = document.getElementById('pinInput').value;
+    // Handle PIN verification
+    document.getElementById('verifyPin').addEventListener('click', verifyPin);
+    pinInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            verifyPin();
+        }
+    });
+
+    // PIN verification function
+    function verifyPin() {
+        const enteredPin = pinInput.value;
+        pinInput.classList.remove('is-invalid');
+        pinError.classList.add('d-none');
         
         fetch('/api/verify-pin', {
             method: 'POST',
@@ -39,11 +42,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 loadAppointments();
                 loadContacts();
                 initializeCharts();
+                
+                // Store authentication state
+                sessionStorage.setItem('pinVerified', 'true');
             } else {
-                document.getElementById('pinInput').classList.add('is-invalid');
+                pinInput.classList.add('is-invalid');
+                pinError.classList.remove('d-none');
+                pinInput.value = '';
+                pinInput.focus();
             }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            pinError.textContent = 'Error de conexión. Por favor, intente de nuevo.';
+            pinError.classList.remove('d-none');
         });
-    });
+    }
+
+    // Check authentication state on page load/refresh
+    if (!sessionStorage.getItem('pinVerified')) {
+        pinModal.show();
+    } else {
+        dashboardContent.style.display = 'block';
+        loadAppointments();
+        loadContacts();
+        initializeCharts();
+    }
+
+    // Format phone number for display
+    function formatPhoneNumber(phone) {
+        if (!phone) return '-';
+        return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+    }
 
     // Initialize Charts
     function initializeCharts() {
@@ -356,13 +386,6 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error:', error);
             alert('Error updating contact status. Please try again.');
         });
-    });
-
-    // Handle Enter key in PIN input
-    document.getElementById('pinInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            document.getElementById('verifyPin').click();
-        }
     });
 
     // Refresh buttons

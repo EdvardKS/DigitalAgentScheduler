@@ -59,9 +59,9 @@ def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
-            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                return jsonify({"error": "PIN verification required"}), 401
-            return redirect(url_for('appointment_management'))
+            if request.path == '/citas':
+                return render_template('appointment_management.html', show_pin_modal=True)
+            return jsonify({"error": "PIN verification required"}), 401
         return f(*args, **kwargs)
     return decorated_function
 
@@ -71,10 +71,8 @@ def index():
 
 @app.route('/citas')
 def appointment_management():
-    # Clear any existing session
-    if 'pin_verified' not in session:
-        session['pin_verified'] = False
-    return render_template('appointment_management.html')
+    show_pin_modal = not session.get('pin_verified', False)
+    return render_template('appointment_management.html', show_pin_modal=show_pin_modal)
 
 @app.route('/api/verify-pin', methods=['POST'])
 def verify_pin():
