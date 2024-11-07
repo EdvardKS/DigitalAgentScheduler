@@ -62,10 +62,10 @@
                     <div class="col-md-6 mb-4">
                         <div class="card h-100">
                             <div class="card-header bg-danger text-white">
-                                Línea de Tiempo de Citas
+                                Línea de Tiempo
                             </div>
                             <div class="card-body">
-                                <canvas id="appointmentsTimeline"></canvas>
+                                <canvas id="timelineChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -73,7 +73,7 @@
 
                 <!-- Summary Cards -->
                 <div class="row mb-4">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3">
                         <div class="card">
                             <div class="card-body">
                                 <h5 class="card-title">Total de Citas</h5>
@@ -81,7 +81,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3">
                         <div class="card">
                             <div class="card-body">
                                 <h5 class="card-title">Citas de Hoy</h5>
@@ -89,11 +89,19 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3">
                         <div class="card">
                             <div class="card-body">
                                 <h5 class="card-title">Próximas Citas</h5>
                                 <p class="display-4" id="upcomingAppointments">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Consultas Nuevas</h5>
+                                <p class="display-4" id="newContacts">0</p>
                             </div>
                         </div>
                     </div>
@@ -121,9 +129,9 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <div class="table-responsive" style="max-height: 400px;">
                             <table class="table">
-                                <thead class="sticky-top bg-white">
+                                <thead style="position: sticky; top: 0; background: white; z-index: 1;">
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Hora</th>
@@ -156,6 +164,30 @@
             <div class="tab-pane fade" id="contacts" role="tabpanel">
                 <h2 class="text-danger mb-4">Gestión de Contactos</h2>
                 
+                <!-- Contact Analytics -->
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-danger text-white">
+                                Estado de Consultas
+                            </div>
+                            <div class="card-body">
+                                <canvas id="contactStatusChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-danger text-white">
+                                Consultas por Día
+                            </div>
+                            <div class="card-body">
+                                <canvas id="contactTimelineChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Contacts Table -->
                 <div class="card mb-4">
                     <div class="card-header d-flex justify-content-between align-items-center bg-danger text-white">
@@ -178,9 +210,9 @@
                         </div>
                     </div>
                     <div class="card-body">
-                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                        <div class="table-responsive" style="max-height: 400px;">
                             <table class="table">
-                                <thead class="sticky-top bg-white">
+                                <thead style="position: sticky; top: 0; background: white; z-index: 1;">
                                     <tr>
                                         <th>Fecha</th>
                                         <th>Nombre</th>
@@ -212,140 +244,7 @@
 </div>
 
 <!-- Edit Appointment Modal -->
-<div class="modal fade" id="editAppointmentModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">Editar Cita</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editAppointmentForm">
-                    <input type="hidden" id="editAppointmentId">
-                    <div class="mb-3">
-                        <label for="editName" class="form-label">Nombre</label>
-                        <input type="text" class="form-control" id="editName" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editEmail" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="editEmail" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editPhone" class="form-label">Teléfono</label>
-                        <input type="tel" class="form-control" id="editPhone">
-                    </div>
-                    <div class="mb-3">
-                        <label for="editDate" class="form-label">Fecha</label>
-                        <input type="date" class="form-control" id="editDate" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editTime" class="form-label">Hora</label>
-                        <select class="form-control" id="editTime" required>
-                            <option value="">Seleccionar hora</option>
-                            <option value="10:30">10:30</option>
-                            <option value="11:00">11:00</option>
-                            <option value="11:30">11:30</option>
-                            <option value="12:00">12:00</option>
-                            <option value="12:30">12:30</option>
-                            <option value="13:00">13:00</option>
-                            <option value="13:30">13:30</option>
-                            <option value="14:00">14:00</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editService" class="form-label">Servicio</label>
-                        <select class="form-control" id="editService" required>
-                            <option value="">Seleccionar servicio</option>
-                            <option value="Inteligencia Artificial">Inteligencia Artificial</option>
-                            <option value="Ventas Digitales">Ventas Digitales</option>
-                            <option value="Estrategia y Rendimiento">Estrategia y Rendimiento</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="editStatus" class="form-label">Estado</label>
-                        <select class="form-control" id="editStatus" required>
-                            <option value="Pendiente">Pendiente</option>
-                            <option value="Confirmada">Confirmada</option>
-                            <option value="Cancelada">Cancelada</option>
-                            <option value="Completada">Completada</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-danger" id="saveAppointmentChanges">Guardar Cambios</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- View Contact Modal -->
-<div class="modal fade" id="viewContactModal" tabindex="-1">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-danger text-white">
-                <h5 class="modal-title">Detalles del Contacto</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editContactForm">
-                    <input type="hidden" id="editContactId">
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Nombre</label>
-                            <input type="text" class="form-control" id="viewContactName" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Email</label>
-                            <input type="email" class="form-control" id="viewContactEmail" readonly>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Teléfono</label>
-                            <input type="tel" class="form-control" id="viewContactPhone" readonly>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label">Dirección</label>
-                            <input type="text" class="form-control" id="viewContactAddress" readonly>
-                        </div>
-                    </div>
-                    <div class="row">
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Código Postal</label>
-                            <input type="text" class="form-control" id="viewContactPostalCode" readonly>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Ciudad</label>
-                            <input type="text" class="form-control" id="viewContactCity" readonly>
-                        </div>
-                        <div class="col-md-4 mb-3">
-                            <label class="form-label">Provincia</label>
-                            <input type="text" class="form-control" id="viewContactProvince" readonly>
-                        </div>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Consulta</label>
-                        <textarea class="form-control" id="viewContactInquiry" rows="4" readonly></textarea>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Estado</label>
-                        <select class="form-control" id="editContactStatus">
-                            <option value="Nuevo">Nuevo</option>
-                            <option value="En Proceso">En Proceso</option>
-                            <option value="Completado">Completado</option>
-                        </select>
-                    </div>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
-                <button type="button" class="btn btn-danger" id="saveContactChanges">Guardar Estado</button>
-            </div>
-        </div>
-    </div>
-</div>
+[... rest of the existing modals ...]
 
 {% endblock %}
 

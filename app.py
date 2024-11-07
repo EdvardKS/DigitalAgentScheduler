@@ -3,7 +3,7 @@ from flask import Flask, render_template, request, jsonify, session
 from datetime import datetime, time, timedelta
 from chatbot import generate_response
 from functools import wraps
-from flask_mail import Mail
+from flask_mail import Mail, Message
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email
 from models import db, Appointment, Contact
 from sqlalchemy import func
@@ -54,6 +54,34 @@ app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5000')
 # Initialize extensions
 db.init_app(app)
 mail.init_app(app)
+
+def send_contact_confirmation_email(contact):
+    """Send confirmation email for contact form submission"""
+    try:
+        msg = Message(
+            'KIT CONSULTING - Confirmación de Contacto',
+            sender=app.config['MAIL_USERNAME'],
+            recipients=[contact.email]
+        )
+        
+        # Prepare template context
+        context = {
+            'name': contact.name,
+            'email': contact.email,
+            'phone': contact.phone,
+            'inquiry': contact.inquiry,
+            'logo_url': f"{app.config['BASE_URL']}/static/disenyo/SVG/01-LOGO.svg"
+        }
+        
+        msg.html = render_template('email/contact_confirmation.html', **context)
+        
+        # Send email
+        mail.send(msg)
+        logger.info(f"Contact confirmation email sent to {contact.email}")
+        
+    except Exception as e:
+        logger.error(f"Error sending contact confirmation email: {str(e)}")
+        raise
 
 def check_rate_limit(ip):
     """Check if the request should be rate limited"""
@@ -221,7 +249,14 @@ def handle_contact_form():
         db.session.add(contact)
         db.session.commit()
         logger.info(f"New contact form submission created: {contact.id}")
-
+        
+        # Send confirmation email
+        try:
+            send_contact_confirmation_email(contact)
+        except Exception as e:
+            logger.error(f"Failed to send confirmation email: {str(e)}")
+            # Continue execution even if email fails
+        
         return jsonify({"message": "Formulario enviado exitosamente"}), 200
 
     except Exception as e:

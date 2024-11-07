@@ -1,7 +1,9 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // Initialize charts and setup PIN verification
     const pinModal = new bootstrap.Modal(document.getElementById('pinModal'));
     const dashboardContent = document.getElementById('dashboardContent');
     const editModal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
+    const viewContactModal = new bootstrap.Modal(document.getElementById('viewContactModal'));
 
     // Pagination settings
     let currentPage = 1;
@@ -15,7 +17,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Format phone number for display
     function formatPhoneNumber(phone) {
         if (!phone) return '-';
-        // Format: XXX XXX XXX
         return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
     }
 
@@ -36,6 +37,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 pinModal.hide();
                 dashboardContent.style.display = 'block';
                 loadAppointments();
+                loadContacts();
                 initializeCharts();
             } else {
                 document.getElementById('pinInput').classList.add('is-invalid');
@@ -70,8 +72,8 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Appointments Timeline Chart
-        const timelineCtx = document.getElementById('appointmentsTimeline').getContext('2d');
+        // Timeline Chart
+        const timelineCtx = document.getElementById('timelineChart').getContext('2d');
         new Chart(timelineCtx, {
             type: 'line',
             data: {
@@ -95,10 +97,61 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         });
+
+        // Contact Status Chart
+        const contactStatusCtx = document.getElementById('contactStatusChart').getContext('2d');
+        new Chart(contactStatusCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Nuevo', 'En Proceso', 'Completado'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [
+                        '#ffc107',
+                        '#17a2b8',
+                        '#28a745'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Contact Timeline Chart
+        const contactTimelineCtx = document.getElementById('contactTimelineChart').getContext('2d');
+        new Chart(contactTimelineCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Consultas por día',
+                    data: [],
+                    borderColor: '#d8001d',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
     }
 
     // Update Charts
-    function updateCharts(appointments) {
+    function updateCharts(appointments, contacts) {
         // Update Services Distribution
         const serviceCounts = {
             'Inteligencia Artificial': 0,
@@ -126,125 +179,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         const sortedDates = Object.keys(dateGroups).sort();
-        const timelineChart = Chart.getChart('appointmentsTimeline');
+        const timelineChart = Chart.getChart('timelineChart');
         timelineChart.data.labels = sortedDates;
         timelineChart.data.datasets[0].data = sortedDates.map(date => dateGroups[date]);
         timelineChart.update();
-    }
 
-    // Filter appointments
-    function filterAppointments(appointments, filter) {
-        const today = new Date().toISOString().split('T')[0];
-        
-        switch(filter) {
-            case 'today':
-                return appointments.filter(apt => apt.date === today);
-            case 'upcoming':
-                return appointments.filter(apt => apt.date > today);
-            case 'past':
-                return appointments.filter(apt => apt.date < today);
-            default:
-                return appointments;
-        }
-    }
-
-    // Pagination
-    function updatePagination() {
-        const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
-        const pagination = document.getElementById('pagination');
-        pagination.innerHTML = '';
-
-        // Previous button
-        const prevLi = document.createElement('li');
-        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
-        prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Anterior</a>`;
-        pagination.appendChild(prevLi);
-
-        // Page numbers
-        for (let i = 1; i <= totalPages; i++) {
-            const li = document.createElement('li');
-            li.className = `page-item ${currentPage === i ? 'active' : ''}`;
-            li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
-            pagination.appendChild(li);
-        }
-
-        // Next button
-        const nextLi = document.createElement('li');
-        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
-        nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Siguiente</a>`;
-        pagination.appendChild(nextLi);
-
-        // Add click events
-        pagination.querySelectorAll('.page-link').forEach(link => {
-            link.addEventListener('click', (e) => {
-                e.preventDefault();
-                const newPage = parseInt(e.target.dataset.page);
-                if (!isNaN(newPage) && newPage !== currentPage && newPage > 0 && newPage <= totalPages) {
-                    currentPage = newPage;
-                    displayAppointments();
-                }
-            });
-        });
-    }
-
-    // Display appointments with pagination
-    function displayAppointments() {
-        const tbody = document.getElementById('appointmentsTableBody');
-        const start = (currentPage - 1) * itemsPerPage;
-        const end = start + itemsPerPage;
-        const paginatedAppointments = filteredAppointments.slice(start, end);
-
-        tbody.innerHTML = paginatedAppointments.map(appointment => `
-            <tr>
-                <td>${appointment.date}</td>
-                <td>${appointment.time}</td>
-                <td>${appointment.name}</td>
-                <td>${appointment.email}</td>
-                <td>${formatPhoneNumber(appointment.phone)}</td>
-                <td>${appointment.service}</td>
-                <td>
-                    <span class="badge bg-${getStatusBadgeClass(appointment.status)}">
-                        ${appointment.status || 'Pendiente'}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline-danger edit-appointment" data-id="${appointment.id}">
-                        <i data-feather="edit-2"></i>
-                    </button>
-                    <button class="btn btn-sm btn-danger delete-appointment" data-id="${appointment.id}">
-                        <i data-feather="trash-2"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-
-        // Update feather icons
-        feather.replace();
-
-        // Update pagination
-        updatePagination();
-        
-        // Update total records count
-        document.getElementById('totalRecords').textContent = filteredAppointments.length;
-
-        // Add event listeners for edit and delete buttons
-        document.querySelectorAll('.edit-appointment').forEach(button => {
-            button.addEventListener('click', () => editAppointment(button.dataset.id));
-        });
-
-        document.querySelectorAll('.delete-appointment').forEach(button => {
-            button.addEventListener('click', () => deleteAppointment(button.dataset.id));
-        });
-    }
-
-    function getStatusBadgeClass(status) {
-        const statusClasses = {
-            'Pendiente': 'warning',
-            'Confirmada': 'success',
-            'Cancelada': 'danger',
-            'Completada': 'info'
+        // Update Contact Status Chart
+        const statusCounts = {
+            'Nuevo': 0,
+            'En Proceso': 0,
+            'Completado': 0
         };
-        return statusClasses[status] || 'secondary';
+
+        contacts.forEach(contact => {
+            if (statusCounts.hasOwnProperty(contact.status)) {
+                statusCounts[contact.status]++;
+            }
+        });
+
+        const contactStatusChart = Chart.getChart('contactStatusChart');
+        contactStatusChart.data.datasets[0].data = Object.values(statusCounts);
+        contactStatusChart.update();
+
+        // Update Contact Timeline
+        const contactDateGroups = {};
+        contacts.forEach(contact => {
+            const date = contact.created_at.split(' ')[0];
+            if (!contactDateGroups[date]) {
+                contactDateGroups[date] = 0;
+            }
+            contactDateGroups[date]++;
+        });
+
+        const sortedContactDates = Object.keys(contactDateGroups).sort();
+        const contactTimelineChart = Chart.getChart('contactTimelineChart');
+        contactTimelineChart.data.labels = sortedContactDates;
+        contactTimelineChart.data.datasets[0].data = sortedContactDates.map(date => contactDateGroups[date]);
+        contactTimelineChart.update();
     }
 
     // Load appointments
@@ -261,8 +232,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.appointments) {
                     filteredAppointments = filterAppointments(data.appointments, currentFilter);
                     displayAppointments();
-                    updateCharts(data.appointments);
-                    updateSummaryCards(data.appointments);
+                    loadContacts().then(contacts => {
+                        updateCharts(data.appointments, contacts);
+                        updateSummaryCards(data.appointments, contacts);
+                    });
                 }
             })
             .catch(error => {
@@ -271,8 +244,32 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     }
 
+    // Load contacts
+    function loadContacts() {
+        return fetch('/api/contacts')
+            .then(response => {
+                if (response.status === 401) {
+                    pinModal.show();
+                    throw new Error('PIN verification required');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.contacts) {
+                    displayContacts(data.contacts);
+                    return data.contacts;
+                }
+                return [];
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading contacts. Please try again.');
+                return [];
+            });
+    }
+
     // Update summary cards
-    function updateSummaryCards(appointments) {
+    function updateSummaryCards(appointments, contacts) {
         const today = new Date().toISOString().split('T')[0];
         
         document.getElementById('totalAppointments').textContent = appointments.length;
@@ -280,88 +277,84 @@ document.addEventListener('DOMContentLoaded', () => {
             appointments.filter(apt => apt.date === today).length;
         document.getElementById('upcomingAppointments').textContent = 
             appointments.filter(apt => apt.date > today).length;
+        document.getElementById('newContacts').textContent = 
+            contacts.filter(contact => contact.status === 'Nuevo').length;
     }
 
-    // Edit appointment
-    function editAppointment(id) {
-        const appointment = filteredAppointments.find(apt => apt.id === parseInt(id));
-        if (!appointment) return;
+    // Display contacts
+    function displayContacts(contacts) {
+        const tbody = document.getElementById('contactsTableBody');
+        tbody.innerHTML = contacts.map(contact => `
+            <tr>
+                <td>${new Date(contact.created_at).toLocaleDateString('es-ES')}</td>
+                <td>${contact.name}</td>
+                <td>${contact.email}</td>
+                <td>${formatPhoneNumber(contact.phone)}</td>
+                <td>${contact.city || '-'}</td>
+                <td>
+                    <span class="badge bg-${getStatusBadgeClass(contact.status)}">
+                        ${contact.status}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger view-contact" data-id="${contact.id}">
+                        <i data-feather="eye"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
 
-        document.getElementById('editAppointmentId').value = id;
-        document.getElementById('editName').value = appointment.name;
-        document.getElementById('editEmail').value = appointment.email;
-        document.getElementById('editPhone').value = appointment.phone || '';
-        document.getElementById('editDate').value = appointment.date;
-        document.getElementById('editTime').value = appointment.time;
-        document.getElementById('editService').value = appointment.service;
-        document.getElementById('editStatus').value = appointment.status || 'Pendiente';
+        // Update feather icons
+        feather.replace();
 
-        editModal.show();
+        // Add event listeners for view buttons
+        document.querySelectorAll('.view-contact').forEach(button => {
+            button.addEventListener('click', () => viewContact(button.dataset.id));
+        });
     }
 
-    // Save appointment changes
-    document.getElementById('saveAppointmentChanges').addEventListener('click', () => {
-        const id = document.getElementById('editAppointmentId').value;
-        const appointmentData = {
-            name: document.getElementById('editName').value,
-            email: document.getElementById('editEmail').value,
-            phone: document.getElementById('editPhone').value.trim() || null,
-            date: document.getElementById('editDate').value,
-            time: document.getElementById('editTime').value,
-            service: document.getElementById('editService').value,
-            status: document.getElementById('editStatus').value
-        };
+    // View contact details
+    function viewContact(id) {
+        const contact = contacts.find(c => c.id === parseInt(id));
+        if (!contact) return;
 
-        fetch(`/api/appointments/${id}`, {
+        document.getElementById('editContactId').value = id;
+        document.getElementById('viewContactName').value = contact.name;
+        document.getElementById('viewContactEmail').value = contact.email;
+        document.getElementById('viewContactPhone').value = contact.phone || '';
+        document.getElementById('viewContactPostalCode').value = contact.postal_code || '';
+        document.getElementById('viewContactCity').value = contact.city || '';
+        document.getElementById('viewContactProvince').value = contact.province || '';
+        document.getElementById('viewContactInquiry').value = contact.inquiry || '';
+        document.getElementById('editContactStatus').value = contact.status;
+
+        viewContactModal.show();
+    }
+
+    // Save contact changes
+    document.getElementById('saveContactChanges').addEventListener('click', () => {
+        const id = document.getElementById('editContactId').value;
+        const status = document.getElementById('editContactStatus').value;
+
+        fetch(`/api/contacts/${id}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify(appointmentData)
+            body: JSON.stringify({ status })
         })
         .then(response => response.json())
         .then(data => {
             if (data.message) {
-                editModal.hide();
-                loadAppointments();
+                viewContactModal.hide();
+                loadContacts();
             } else {
-                alert(data.error || 'Error updating appointment');
+                alert(data.error || 'Error updating contact status');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error updating appointment. Please try again.');
-        });
-    });
-
-    // Delete appointment
-    function deleteAppointment(id) {
-        if (confirm('Are you sure you want to delete this appointment?')) {
-            fetch(`/api/appointments/${id}`, {
-                method: 'DELETE'
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.message) {
-                    loadAppointments();
-                } else {
-                    alert(data.error || 'Error deleting appointment');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error deleting appointment. Please try again.');
-            });
-        }
-    }
-
-    // Filter dropdown handler
-    document.querySelectorAll('[data-filter]').forEach(filterLink => {
-        filterLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            currentFilter = e.target.dataset.filter;
-            currentPage = 1;
-            loadAppointments();
+            alert('Error updating contact status. Please try again.');
         });
     });
 
@@ -372,6 +365,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Refresh appointments
+    // Refresh buttons
     document.getElementById('refreshAppointments').addEventListener('click', loadAppointments);
+    document.getElementById('refreshContacts').addEventListener('click', loadContacts);
 });
