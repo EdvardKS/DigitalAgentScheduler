@@ -7,7 +7,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get form data
             const formData = new FormData(contactForm);
-            const formObject = Object.fromEntries(formData.entries());
+            const formObject = {};
+            formData.forEach((value, key) => formObject[key] = value);
             
             // Disable form while submitting
             const submitButton = contactForm.querySelector('button[type="submit"]');
@@ -120,17 +121,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     this.classList.add('is-invalid');
                 } else {
                     this.classList.remove('is-invalid');
-                }
-            });
-        }
-
-        // Postal code validation
-        const postalCodeInput = contactForm.querySelector('input[name="codigoPostal"]');
-        if (postalCodeInput) {
-            postalCodeInput.addEventListener('input', function() {
-                this.value = this.value.replace(/[^0-9]/g, '');
-                if (this.value.length > 5) {
-                    this.value = this.value.slice(0, 5);
                 }
             });
         }

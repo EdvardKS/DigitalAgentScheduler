@@ -399,7 +399,7 @@ def generate_response(user_message, conversation_history=None):
         messages.append({"role": "user", "content": user_message})
 
         completion = openai.ChatCompletion.create(
-            model=os.getenv("MODELO_FINETUNED"),
+            model="gpt-4",
             messages=messages,
             temperature=0.7,
             max_tokens=500

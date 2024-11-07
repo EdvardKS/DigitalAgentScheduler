@@ -1,138 +1,135 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize components
-    const pinModal = new bootstrap.Modal(document.getElementById('pinModal'), {
-        backdrop: 'static',
-        keyboard: false
-    });
+    const pinModal = new bootstrap.Modal(document.getElementById('pinModal'));
     const dashboardContent = document.getElementById('dashboardContent');
-    const pinInput = document.getElementById('pinInput');
-    const pinError = document.getElementById('pinError');
     const editModal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
-    
+
     // Pagination settings
     let currentPage = 1;
     const itemsPerPage = 10;
     let filteredAppointments = [];
     let currentFilter = 'all';
-    let retryAttempts = 0;
-    const maxRetries = 3;
-    const retryDelay = 1000;
 
-    // Show PIN modal if needed
-    if (document.getElementById('pinModal').dataset.bsShow === 'true') {
-        pinModal.show();
-    }
-
-    // Handle PIN verification
-    document.getElementById('verifyPin').addEventListener('click', verifyPin);
-    pinInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            verifyPin();
-        }
-    });
+    // Show PIN modal on page load
+    pinModal.show();
 
     // Format phone number for display
     function formatPhoneNumber(phone) {
         if (!phone) return '-';
+        // Format: XXX XXX XXX
         return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
     }
 
-    // Show alert message
-    function showAlert(type, message, container = '.card-body') {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-        document.querySelector(container).prepend(alertDiv);
+    // PIN verification
+    document.getElementById('verifyPin').addEventListener('click', () => {
+        const enteredPin = document.getElementById('pinInput').value;
         
-        setTimeout(() => {
-            alertDiv.remove();
-        }, 5000);
-    }
-
-    // PIN verification function with retry
-    async function verifyPin() {
-        const enteredPin = pinInput.value;
-        pinInput.classList.remove('is-invalid');
-        pinError.classList.add('d-none');
-        
-        try {
-            const response = await fetch('/api/verify-pin', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ pin: enteredPin }),
-            });
-            
-            const data = await response.json();
-            
+        fetch('/api/verify-pin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ pin: enteredPin }),
+        })
+        .then(response => response.json())
+        .then(data => {
             if (data.success) {
                 pinModal.hide();
                 dashboardContent.style.display = 'block';
-                sessionStorage.setItem('pinVerified', 'true');
-                await loadData();
+                loadAppointments();
+                initializeCharts();
             } else {
-                pinInput.classList.add('is-invalid');
-                pinError.classList.remove('d-none');
-                pinInput.value = '';
-                pinInput.focus();
+                document.getElementById('pinInput').classList.add('is-invalid');
             }
-        } catch (error) {
-            console.error('Error:', error);
-            pinError.textContent = 'Error de conexión. Por favor, intente de nuevo.';
-            pinError.classList.remove('d-none');
-        }
+        });
+    });
+
+    // Initialize Charts
+    function initializeCharts() {
+        // Services Distribution Chart
+        const servicesCtx = document.getElementById('servicesChart').getContext('2d');
+        new Chart(servicesCtx, {
+            type: 'pie',
+            data: {
+                labels: ['Inteligencia Artificial', 'Ventas Digitales', 'Estrategia y Rendimiento'],
+                datasets: [{
+                    data: [0, 0, 0],
+                    backgroundColor: [
+                        '#d8001d',
+                        '#ff6384',
+                        '#ff9f40'
+                    ]
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+
+        // Appointments Timeline Chart
+        const timelineCtx = document.getElementById('appointmentsTimeline').getContext('2d');
+        new Chart(timelineCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Citas por día',
+                    data: [],
+                    borderColor: '#d8001d',
+                    tension: 0.1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                }
+            }
+        });
     }
 
-    // Load all data with retry mechanism
-    async function loadData(retry = true) {
-        try {
-            const [appointmentsData, contactsData] = await Promise.all([
-                loadAppointments(),
-                loadContacts()
-            ]);
-            
-            if (appointmentsData && contactsData) {
-                updateCharts(appointmentsData, contactsData);
-                updateSummaryCards(appointmentsData, contactsData);
-            }
-            
-            retryAttempts = 0;
-        } catch (error) {
-            console.error('Error loading data:', error);
-            if (retry && retryAttempts < maxRetries) {
-                retryAttempts++;
-                showAlert('warning', `Error al cargar datos. Reintentando (${retryAttempts}/${maxRetries})...`);
-                setTimeout(() => loadData(), retryDelay * retryAttempts);
-            } else {
-                showAlert('danger', 'Error al cargar los datos. Por favor, actualice la página.');
-            }
-        }
-    }
+    // Update Charts
+    function updateCharts(appointments) {
+        // Update Services Distribution
+        const serviceCounts = {
+            'Inteligencia Artificial': 0,
+            'Ventas Digitales': 0,
+            'Estrategia y Rendimiento': 0
+        };
 
-    // Load appointments
-    async function loadAppointments() {
-        try {
-            const response = await fetch('/api/appointments');
-            if (response.status === 401) {
-                pinModal.show();
-                throw new Error('PIN verification required');
+        appointments.forEach(apt => {
+            if (serviceCounts.hasOwnProperty(apt.service)) {
+                serviceCounts[apt.service]++;
             }
-            const data = await response.json();
-            if (data.appointments) {
-                filteredAppointments = filterAppointments(data.appointments, currentFilter);
-                displayAppointments();
-                return data.appointments;
+        });
+
+        const servicesChart = Chart.getChart('servicesChart');
+        servicesChart.data.datasets[0].data = Object.values(serviceCounts);
+        servicesChart.update();
+
+        // Update Timeline
+        const dateGroups = {};
+        appointments.forEach(apt => {
+            if (!dateGroups[apt.date]) {
+                dateGroups[apt.date] = 0;
             }
-            return null;
-        } catch (error) {
-            console.error('Error:', error);
-            showAlert('danger', 'Error al cargar las citas. Por favor, intente de nuevo.');
-            throw error;
-        }
+            dateGroups[apt.date]++;
+        });
+
+        const sortedDates = Object.keys(dateGroups).sort();
+        const timelineChart = Chart.getChart('appointmentsTimeline');
+        timelineChart.data.labels = sortedDates;
+        timelineChart.data.datasets[0].data = sortedDates.map(date => dateGroups[date]);
+        timelineChart.update();
     }
 
     // Filter appointments
@@ -151,13 +148,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Update pagination
+    // Pagination
     function updatePagination() {
         const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
         const pagination = document.getElementById('pagination');
         pagination.innerHTML = '';
-
-        if (totalPages <= 1) return;
 
         // Previous button
         const prevLi = document.createElement('li');
@@ -192,29 +187,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Display appointments
+    // Display appointments with pagination
     function displayAppointments() {
+        const tbody = document.getElementById('appointmentsTableBody');
         const start = (currentPage - 1) * itemsPerPage;
         const end = start + itemsPerPage;
         const paginatedAppointments = filteredAppointments.slice(start, end);
-        
-        const tbody = document.getElementById('appointmentsTableBody');
-        tbody.innerHTML = paginatedAppointments.map(apt => `
+
+        tbody.innerHTML = paginatedAppointments.map(appointment => `
             <tr>
-                <td>${new Date(apt.date).toLocaleDateString('es-ES')}</td>
-                <td>${apt.time}</td>
-                <td>${apt.name}</td>
-                <td>${apt.email}</td>
-                <td>${formatPhoneNumber(apt.phone)}</td>
-                <td>${apt.service}</td>
+                <td>${appointment.date}</td>
+                <td>${appointment.time}</td>
+                <td>${appointment.name}</td>
+                <td>${appointment.email}</td>
+                <td>${formatPhoneNumber(appointment.phone)}</td>
+                <td>${appointment.service}</td>
                 <td>
-                    <span class="badge bg-${getStatusBadgeClass(apt.status)}">
-                        ${apt.status}
+                    <span class="badge bg-${getStatusBadgeClass(appointment.status)}">
+                        ${appointment.status || 'Pendiente'}
                     </span>
                 </td>
                 <td>
-                    <button class="btn btn-sm btn-outline-danger edit-appointment" data-id="${apt.id}">
+                    <button class="btn btn-sm btn-outline-danger edit-appointment" data-id="${appointment.id}">
                         <i data-feather="edit-2"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger delete-appointment" data-id="${appointment.id}">
+                        <i data-feather="trash-2"></i>
                     </button>
                 </td>
             </tr>
@@ -229,121 +227,52 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update total records count
         document.getElementById('totalRecords').textContent = filteredAppointments.length;
 
-        // Add event listeners for edit buttons
+        // Add event listeners for edit and delete buttons
         document.querySelectorAll('.edit-appointment').forEach(button => {
             button.addEventListener('click', () => editAppointment(button.dataset.id));
         });
+
+        document.querySelectorAll('.delete-appointment').forEach(button => {
+            button.addEventListener('click', () => deleteAppointment(button.dataset.id));
+        });
     }
 
-    // Get status badge class
     function getStatusBadgeClass(status) {
         const statusClasses = {
             'Pendiente': 'warning',
-            'Confirmado': 'success',
-            'Cancelado': 'danger',
-            'Completado': 'info'
+            'Confirmada': 'success',
+            'Cancelada': 'danger',
+            'Completada': 'info'
         };
         return statusClasses[status] || 'secondary';
     }
 
-    // Initialize Charts
-    function initializeCharts() {
-        const charts = {
-            services: {
-                ctx: document.getElementById('servicesChart').getContext('2d'),
-                config: {
-                    type: 'pie',
-                    data: {
-                        labels: ['Inteligencia Artificial', 'Ventas Digitales', 'Estrategia y Rendimiento'],
-                        datasets: [{
-                            data: [0, 0, 0],
-                            backgroundColor: ['#d8001d', '#ff6384', '#ff9f40']
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        plugins: {
-                            legend: {
-                                position: 'bottom'
-                            }
-                        }
-                    }
+    // Load appointments
+    function loadAppointments() {
+        fetch('/api/appointments')
+            .then(response => {
+                if (response.status === 401) {
+                    pinModal.show();
+                    throw new Error('PIN verification required');
                 }
-            },
-            timeline: {
-                ctx: document.getElementById('timelineChart').getContext('2d'),
-                config: {
-                    type: 'line',
-                    data: {
-                        labels: [],
-                        datasets: [{
-                            label: 'Citas por día',
-                            data: [],
-                            borderColor: '#d8001d',
-                            tension: 0.1
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        scales: {
-                            y: {
-                                beginAtZero: true,
-                                ticks: {
-                                    stepSize: 1
-                                }
-                            }
-                        }
-                    }
+                return response.json();
+            })
+            .then(data => {
+                if (data.appointments) {
+                    filteredAppointments = filterAppointments(data.appointments, currentFilter);
+                    displayAppointments();
+                    updateCharts(data.appointments);
+                    updateSummaryCards(data.appointments);
                 }
-            }
-        };
-
-        // Create charts
-        Object.keys(charts).forEach(key => {
-            new Chart(charts[key].ctx, charts[key].config);
-        });
-    }
-
-    // Update Charts
-    function updateCharts(appointments, contacts) {
-        try {
-            // Update Services Distribution
-            const servicesChart = Chart.getChart('servicesChart');
-            if (servicesChart) {
-                const serviceCounts = appointments.reduce((acc, apt) => {
-                    acc[apt.service] = (acc[apt.service] || 0) + 1;
-                    return acc;
-                }, {});
-
-                servicesChart.data.datasets[0].data = [
-                    serviceCounts['Inteligencia Artificial'] || 0,
-                    serviceCounts['Ventas Digitales'] || 0,
-                    serviceCounts['Estrategia y Rendimiento'] || 0
-                ];
-                servicesChart.update();
-            }
-
-            // Update Timeline
-            const timelineChart = Chart.getChart('timelineChart');
-            if (timelineChart) {
-                const dateGroups = appointments.reduce((acc, apt) => {
-                    acc[apt.date] = (acc[apt.date] || 0) + 1;
-                    return acc;
-                }, {});
-
-                const sortedDates = Object.keys(dateGroups).sort();
-                timelineChart.data.labels = sortedDates;
-                timelineChart.data.datasets[0].data = sortedDates.map(date => dateGroups[date]);
-                timelineChart.update();
-            }
-        } catch (error) {
-            console.error('Error updating charts:', error);
-            showAlert('warning', 'Error al actualizar los gráficos');
-        }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading appointments. Please try again.');
+            });
     }
 
     // Update summary cards
-    function updateSummaryCards(appointments, contacts) {
+    function updateSummaryCards(appointments) {
         const today = new Date().toISOString().split('T')[0];
         
         document.getElementById('totalAppointments').textContent = appointments.length;
@@ -351,8 +280,79 @@ document.addEventListener('DOMContentLoaded', () => {
             appointments.filter(apt => apt.date === today).length;
         document.getElementById('upcomingAppointments').textContent = 
             appointments.filter(apt => apt.date > today).length;
-        document.getElementById('newContacts').textContent = 
-            contacts.filter(contact => contact.status === 'Nuevo').length;
+    }
+
+    // Edit appointment
+    function editAppointment(id) {
+        const appointment = filteredAppointments.find(apt => apt.id === parseInt(id));
+        if (!appointment) return;
+
+        document.getElementById('editAppointmentId').value = id;
+        document.getElementById('editName').value = appointment.name;
+        document.getElementById('editEmail').value = appointment.email;
+        document.getElementById('editPhone').value = appointment.phone || '';
+        document.getElementById('editDate').value = appointment.date;
+        document.getElementById('editTime').value = appointment.time;
+        document.getElementById('editService').value = appointment.service;
+        document.getElementById('editStatus').value = appointment.status || 'Pendiente';
+
+        editModal.show();
+    }
+
+    // Save appointment changes
+    document.getElementById('saveAppointmentChanges').addEventListener('click', () => {
+        const id = document.getElementById('editAppointmentId').value;
+        const appointmentData = {
+            name: document.getElementById('editName').value,
+            email: document.getElementById('editEmail').value,
+            phone: document.getElementById('editPhone').value.trim() || null,
+            date: document.getElementById('editDate').value,
+            time: document.getElementById('editTime').value,
+            service: document.getElementById('editService').value,
+            status: document.getElementById('editStatus').value
+        };
+
+        fetch(`/api/appointments/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(appointmentData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.message) {
+                editModal.hide();
+                loadAppointments();
+            } else {
+                alert(data.error || 'Error updating appointment');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error updating appointment. Please try again.');
+        });
+    });
+
+    // Delete appointment
+    function deleteAppointment(id) {
+        if (confirm('Are you sure you want to delete this appointment?')) {
+            fetch(`/api/appointments/${id}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.message) {
+                    loadAppointments();
+                } else {
+                    alert(data.error || 'Error deleting appointment');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting appointment. Please try again.');
+            });
+        }
     }
 
     // Filter dropdown handler
@@ -365,15 +365,13 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Refresh button handler
-    document.getElementById('refreshAppointments').addEventListener('click', () => loadData(false));
+    // Handle Enter key in PIN input
+    document.getElementById('pinInput').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            document.getElementById('verifyPin').click();
+        }
+    });
 
-    // Initialize on load
-    if (sessionStorage.getItem('pinVerified')) {
-        dashboardContent.style.display = 'block';
-        initializeCharts();
-        loadData();
-    } else {
-        pinModal.show();
-    }
+    // Refresh appointments
+    document.getElementById('refreshAppointments').addEventListener('click', loadAppointments);
 });
