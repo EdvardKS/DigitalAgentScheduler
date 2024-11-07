@@ -4,7 +4,7 @@ from datetime import datetime, time, timedelta
 from chatbot import generate_response
 from functools import wraps
 from flask_mail import Mail
-from email_utils import mail, send_appointment_confirmation, schedule_reminder_email
+from email_utils import mail, send_appointment_confirmation, schedule_reminder_email, send_contact_form_notification
 from models import db, Appointment
 from sqlalchemy import func
 import logging
@@ -62,28 +62,6 @@ def check_rate_limit(ip):
     request_counts[ip].append(now)
     return len(request_counts[ip]) <= RATE_LIMIT
 
-# Validation functions from gestion_citas_bot.py
-def validar_nombre(nombre):
-    return bool(re.match("^[A-Za-zÀ-ÿ\s]{2,100}$", nombre))
-
-def validar_correo(correo):
-    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", correo))
-
-def obtener_disponibilidad():
-    """Get available time slots excluding weekends and past times"""
-    dias_disponibles = []
-    now = datetime.now()
-    
-    # Get next 7 available weekdays
-    current_date = now.date()
-    while len(dias_disponibles) < 7:
-        if current_date.weekday() < 5:  # Monday = 0, Friday = 4
-            dias_disponibles.append(current_date.strftime("%Y-%m-%d"))
-        current_date += timedelta(days=1)
-    
-    horas_disponibles = ["10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00"]
-    return dias_disponibles, horas_disponibles
-
 # Decorator for PIN protection
 def require_pin(f):
     @wraps(f)
@@ -93,6 +71,47 @@ def require_pin(f):
             return jsonify({"error": "PIN verification required"}), 401
         return f(*args, **kwargs)
     return decorated_function
+
+# Validation functions
+def validar_nombre(nombre):
+    return bool(re.match("^[A-Za-zÀ-ÿ\s]{2,100}$", nombre))
+
+def validar_correo(correo):
+    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", correo))
+
+def validate_contact_form(data):
+    """Validate contact form data"""
+    errors = {}
+    
+    # Required fields
+    required_fields = {
+        'nombre': 'Nombre es requerido',
+        'email': 'Email es requerido',
+        'telefono': 'Teléfono es requerido',
+        'direccion': 'Dirección es requerida',
+        'codigoPostal': 'Código Postal es requerido',
+        'ciudad': 'Ciudad es requerida',
+        'provincia': 'Provincia es requerida',
+        'dudas': 'Por favor, describe tus dudas'
+    }
+    
+    for field, message in required_fields.items():
+        if not data.get(field):
+            errors[field] = message
+    
+    # Email validation
+    if data.get('email') and not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
+        errors['email'] = 'Email inválido'
+    
+    # Phone validation (Spanish format)
+    if data.get('telefono') and not re.match(r"^(?:\+34|0034|34)?[6789]\d{8}$", data['telefono']):
+        errors['telefono'] = 'Número de teléfono inválido'
+    
+    # Postal code validation (Spanish format)
+    if data.get('codigoPostal') and not re.match(r"^\d{5}$", data['codigoPostal']):
+        errors['codigoPostal'] = 'Código postal inválido'
+    
+    return errors
 
 @app.route('/')
 def index():
@@ -206,37 +225,52 @@ def handle_contact_form():
     try:
         data = request.get_json()
         
-        # Validate required fields
-        required_fields = ['nombre', 'email', 'telefono']
-        for field in required_fields:
-            if not data.get(field):
-                return jsonify({"error": f"Campo requerido: {field}"}), 400
-
-        # Create new appointment
-        appointment = Appointment(
-            name=data['nombre'],
-            email=data['email'],
-            phone=data['telefono'],
-            date=datetime.now().date() + timedelta(days=1),  # Schedule for tomorrow by default
-            time="10:30",  # Default time slot
-            service="Consulta General",  # Default service
-            status="Pendiente",
-            created_at=datetime.utcnow()
-        )
-
-        db.session.add(appointment)
-        db.session.commit()
-        logger.info(f"New contact form submission created: {appointment.id}")
-
-        # Send confirmation email
-        send_appointment_confirmation(appointment)
-        schedule_reminder_email(appointment)
-
-        return jsonify({"message": "Formulario enviado exitosamente"}), 200
-
+        # Validate form data
+        validation_errors = validate_contact_form(data)
+        if validation_errors:
+            return jsonify({
+                "error": "Errores de validación",
+                "validation_errors": validation_errors
+            }), 400
+        
+        try:
+            # Send email notifications
+            send_contact_form_notification(data)
+            
+            # Create appointment record if needed
+            if data.get('requiere_cita', False):
+                appointment = Appointment(
+                    name=data['nombre'],
+                    email=data['email'],
+                    phone=data['telefono'],
+                    date=datetime.now().date() + timedelta(days=1),  # Schedule for tomorrow by default
+                    time="10:30",  # Default time slot
+                    service="Consulta General",
+                    status="Pendiente"
+                )
+                db.session.add(appointment)
+                db.session.commit()
+                logger.info(f"Created appointment from contact form: {appointment.id}")
+            
+            return jsonify({
+                "message": "Formulario enviado exitosamente",
+                "detail": "Hemos recibido tu consulta y nos pondremos en contacto contigo pronto."
+            }), 200
+            
+        except Exception as e:
+            logger.error(f"Error processing contact form: {str(e)}")
+            db.session.rollback()
+            return jsonify({
+                "error": "Error al procesar el formulario",
+                "detail": "Hubo un problema al enviar tu consulta. Por favor, inténtalo de nuevo más tarde."
+            }), 500
+            
     except Exception as e:
-        logger.error(f"Error processing contact form: {str(e)}")
-        return jsonify({"error": "Error al procesar el formulario"}), 500
+        logger.error(f"Error handling contact form submission: {str(e)}")
+        return jsonify({
+            "error": "Error del servidor",
+            "detail": "Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo más tarde."
+        }), 500
 
 @app.route('/api/chatbot', methods=['POST'])
 def chatbot_response():

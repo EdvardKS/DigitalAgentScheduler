@@ -70,7 +70,7 @@ def send_appointment_confirmation(appointment):
         
         # Attach logo if it exists
         try:
-            with current_app.open_resource('static/img/logo.svg') as logo:
+            with current_app.open_resource('static/disenyo/SVG/01-LOGO.svg') as logo:
                 msg.attach('logo.svg', 'image/svg+xml', logo.read(), 'inline', 
                           headers=[('Content-ID', '<logo>')])
         except Exception as e:
@@ -85,6 +85,64 @@ def send_appointment_confirmation(appointment):
         raise
     except Exception as e:
         logger.error(f"Unexpected error sending confirmation email for appointment {appointment.id}: {str(e)}")
+        raise
+
+@retry_on_failure
+def send_contact_form_notification(form_data):
+    """Send notification email for contact form submission"""
+    try:
+        logger.info("Preparing contact form notification email")
+        
+        # Create message for admin
+        admin_msg = Message(
+            f'{os.getenv("APP_NAME", "KIT CONSULTING")} - Nueva Consulta',
+            sender=current_app.config['MAIL_USERNAME'],
+            recipients=[current_app.config['MAIL_USERNAME']]  # Send to admin
+        )
+        
+        # Create message for user
+        user_msg = Message(
+            f'{os.getenv("APP_NAME", "KIT CONSULTING")} - Hemos recibido tu consulta',
+            sender=current_app.config['MAIL_USERNAME'],
+            recipients=[form_data['email']]
+        )
+        
+        # Prepare template context
+        context = {
+            'nombre': form_data['nombre'],
+            'email': form_data['email'],
+            'telefono': form_data['telefono'],
+            'direccion': form_data['direccion'],
+            'codigoPostal': form_data['codigoPostal'],
+            'ciudad': form_data['ciudad'],
+            'provincia': form_data['provincia'],
+            'dudas': form_data['dudas']
+        }
+        
+        # Create HTML content
+        admin_msg.html = render_template('email/contact_form.html', **context)
+        user_msg.html = render_template('email/contact_form_confirmation.html', **context)
+        
+        # Attach logo to both emails
+        try:
+            with current_app.open_resource('static/disenyo/SVG/01-LOGO.svg') as logo:
+                logo_data = logo.read()
+                for msg in [admin_msg, user_msg]:
+                    msg.attach('logo.svg', 'image/svg+xml', logo_data, 'inline',
+                             headers=[('Content-ID', '<logo>')])
+        except Exception as e:
+            logger.warning(f"Failed to attach logo to email: {str(e)}")
+        
+        # Send emails
+        mail.send(admin_msg)
+        mail.send(user_msg)
+        logger.info("Contact form notification emails sent successfully")
+        
+    except SMTPException as e:
+        logger.error(f"SMTP error sending contact form notification: {str(e)}")
+        raise
+    except Exception as e:
+        logger.error(f"Unexpected error sending contact form notification: {str(e)}")
         raise
 
 @retry_on_failure
@@ -116,7 +174,7 @@ def send_appointment_reminder(appointment):
         
         # Attach logo if it exists
         try:
-            with current_app.open_resource('static/img/logo.svg') as logo:
+            with current_app.open_resource('static/disenyo/SVG/01-LOGO.svg') as logo:
                 msg.attach('logo.svg', 'image/svg+xml', logo.read(), 'inline', 
                           headers=[('Content-ID', '<logo>')])
         except Exception as e:

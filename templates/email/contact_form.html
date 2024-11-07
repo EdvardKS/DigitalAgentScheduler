@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .logo {
+            max-width: 200px;
+            margin-bottom: 20px;
+        }
+        .details {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .details h3 {
+            color: #d8001d;
+            margin-top: 0;
+        }
+        .footer {
+            text-align: center;
+            font-size: 14px;
+            color: #666;
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #eee;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="cid:logo" alt="KIT CONSULTING" class="logo">
+        <h2>Nueva Consulta Recibida</h2>
+    </div>
+
+    <div class="details">
+        <h3>Información del Contacto</h3>
+        <p><strong>Nombre:</strong> {{ nombre }}</p>
+        <p><strong>Email:</strong> {{ email }}</p>
+        <p><strong>Teléfono:</strong> {{ telefono }}</p>
+        <p><strong>Dirección:</strong> {{ direccion }}</p>
+        <p><strong>Código Postal:</strong> {{ codigoPostal }}</p>
+        <p><strong>Ciudad:</strong> {{ ciudad }}</p>
+        <p><strong>Provincia:</strong> {{ provincia }}</p>
+    </div>
+
+    <div class="details">
+        <h3>Mensaje</h3>
+        <p>{{ dudas }}</p>
+    </div>
+
+    <div class="footer">
+        <p>KIT CONSULTING - Transformación Digital</p>
+        <p>Este es un correo automático del formulario de contacto.</p>
+    </div>
+</body>
+</html>
