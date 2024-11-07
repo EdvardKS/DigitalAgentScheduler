@@ -25,108 +25,186 @@
 
     <!-- Main Dashboard Content -->
     <div id="dashboardContent" style="display: none;">
-        <h2 class="text-danger mb-4">Panel de Gestión de Citas</h2>
-        
-        <!-- Analytics Charts -->
-        <div class="row mb-4">
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header bg-danger text-white">
-                        Distribución de Servicios
-                    </div>
-                    <div class="card-body">
-                        <canvas id="servicesChart"></canvas>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-6 mb-4">
-                <div class="card h-100">
-                    <div class="card-header bg-danger text-white">
-                        Línea de Tiempo de Citas
-                    </div>
-                    <div class="card-body">
-                        <canvas id="appointmentsTimeline"></canvas>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs mb-4" id="dashboardTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="appointments-tab" data-bs-toggle="tab" 
+                        data-bs-target="#appointments" type="button" role="tab">
+                    Citas
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="contacts-tab" data-bs-toggle="tab" 
+                        data-bs-target="#contacts" type="button" role="tab">
+                    Contactos
+                </button>
+            </li>
+        </ul>
 
-        <!-- Summary Cards -->
-        <div class="row mb-4">
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Total de Citas</h5>
-                        <p class="display-4" id="totalAppointments">0</p>
+        <!-- Tab Content -->
+        <div class="tab-content" id="dashboardTabContent">
+            <!-- Appointments Tab -->
+            <div class="tab-pane fade show active" id="appointments" role="tabpanel">
+                <h2 class="text-danger mb-4">Gestión de Citas</h2>
+                
+                <!-- Analytics Charts -->
+                <div class="row mb-4">
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-danger text-white">
+                                Distribución de Servicios
+                            </div>
+                            <div class="card-body">
+                                <canvas id="servicesChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-4">
+                        <div class="card h-100">
+                            <div class="card-header bg-danger text-white">
+                                Línea de Tiempo de Citas
+                            </div>
+                            <div class="card-body">
+                                <canvas id="appointmentsTimeline"></canvas>
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Citas de Hoy</h5>
-                        <p class="display-4" id="todayAppointments">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Próximas Citas</h5>
-                        <p class="display-4" id="upcomingAppointments">0</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
-        <!-- Appointments Table -->
-        <div class="card mb-4">
-            <div class="card-header d-flex justify-content-between align-items-center bg-danger text-white">
-                <h5 class="mb-0">Citas Programadas</h5>
-                <div>
-                    <button class="btn btn-light btn-sm me-2" id="refreshAppointments">
-                        <i data-feather="refresh-cw"></i> Actualizar
-                    </button>
-                    <div class="dropdown d-inline-block">
-                        <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown">
-                            <i data-feather="filter"></i> Filtrar
-                        </button>
-                        <ul class="dropdown-menu">
-                            <li><a class="dropdown-item" href="#" data-filter="all">Todas</a></li>
-                            <li><a class="dropdown-item" href="#" data-filter="today">Hoy</a></li>
-                            <li><a class="dropdown-item" href="#" data-filter="upcoming">Próximas</a></li>
-                            <li><a class="dropdown-item" href="#" data-filter="past">Pasadas</a></li>
-                        </ul>
+                <!-- Summary Cards -->
+                <div class="row mb-4">
+                    <div class="col-md-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Total de Citas</h5>
+                                <p class="display-4" id="totalAppointments">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Citas de Hoy</h5>
+                                <p class="display-4" id="todayAppointments">0</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4 mb-3">
+                        <div class="card">
+                            <div class="card-body">
+                                <h5 class="card-title">Próximas Citas</h5>
+                                <p class="display-4" id="upcomingAppointments">0</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Appointments Table -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-danger text-white">
+                        <h5 class="mb-0">Citas Programadas</h5>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" id="refreshAppointments">
+                                <i data-feather="refresh-cw"></i> Actualizar
+                            </button>
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="filterDropdown" data-bs-toggle="dropdown">
+                                    <i data-feather="filter"></i> Filtrar
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" data-filter="all">Todas</a></li>
+                                    <li><a class="dropdown-item" href="#" data-filter="today">Hoy</a></li>
+                                    <li><a class="dropdown-item" href="#" data-filter="upcoming">Próximas</a></li>
+                                    <li><a class="dropdown-item" href="#" data-filter="past">Pasadas</a></li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Hora</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Teléfono</th>
+                                        <th>Servicio</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="appointmentsTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="text-muted">
+                                <span id="totalRecords">0</span> registros encontrados
+                            </div>
+                            <nav aria-label="Page navigation">
+                                <ul class="pagination mb-0" id="pagination">
+                                </ul>
+                            </nav>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table">
-                        <thead class="sticky-top bg-white">
-                            <tr>
-                                <th>Fecha</th>
-                                <th>Hora</th>
-                                <th>Nombre</th>
-                                <th>Email</th>
-                                <th>Teléfono</th>
-                                <th>Servicio</th>
-                                <th>Estado</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody id="appointmentsTableBody">
-                        </tbody>
-                    </table>
-                </div>
-                <div class="d-flex justify-content-between align-items-center mt-3">
-                    <div class="text-muted">
-                        <span id="totalRecords">0</span> registros encontrados
+
+            <!-- Contacts Tab -->
+            <div class="tab-pane fade" id="contacts" role="tabpanel">
+                <h2 class="text-danger mb-4">Gestión de Contactos</h2>
+                
+                <!-- Contacts Table -->
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center bg-danger text-white">
+                        <h5 class="mb-0">Consultas y Contactos</h5>
+                        <div>
+                            <button class="btn btn-light btn-sm me-2" id="refreshContacts">
+                                <i data-feather="refresh-cw"></i> Actualizar
+                            </button>
+                            <div class="dropdown d-inline-block">
+                                <button class="btn btn-light btn-sm dropdown-toggle" type="button" id="contactFilterDropdown" data-bs-toggle="dropdown">
+                                    <i data-feather="filter"></i> Filtrar
+                                </button>
+                                <ul class="dropdown-menu">
+                                    <li><a class="dropdown-item" href="#" data-contact-filter="all">Todos</a></li>
+                                    <li><a class="dropdown-item" href="#" data-contact-filter="new">Nuevos</a></li>
+                                    <li><a class="dropdown-item" href="#" data-contact-filter="inprocess">En Proceso</a></li>
+                                    <li><a class="dropdown-item" href="#" data-contact-filter="completed">Completados</a></li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
-                    <nav aria-label="Page navigation">
-                        <ul class="pagination mb-0" id="pagination">
-                        </ul>
-                    </nav>
+                    <div class="card-body">
+                        <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                            <table class="table">
+                                <thead class="sticky-top bg-white">
+                                    <tr>
+                                        <th>Fecha</th>
+                                        <th>Nombre</th>
+                                        <th>Email</th>
+                                        <th>Teléfono</th>
+                                        <th>Ciudad</th>
+                                        <th>Estado</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="contactsTableBody">
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center mt-3">
+                            <div class="text-muted">
+                                <span id="totalContactRecords">0</span> registros encontrados
+                            </div>
+                            <nav aria-label="Contact page navigation">
+                                <ul class="pagination mb-0" id="contactPagination">
+                                </ul>
+                            </nav>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -201,9 +279,78 @@
         </div>
     </div>
 </div>
+
+<!-- View Contact Modal -->
+<div class="modal fade" id="viewContactModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Detalles del Contacto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="editContactForm">
+                    <input type="hidden" id="editContactId">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Nombre</label>
+                            <input type="text" class="form-control" id="viewContactName" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Email</label>
+                            <input type="email" class="form-control" id="viewContactEmail" readonly>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Teléfono</label>
+                            <input type="tel" class="form-control" id="viewContactPhone" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Dirección</label>
+                            <input type="text" class="form-control" id="viewContactAddress" readonly>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Código Postal</label>
+                            <input type="text" class="form-control" id="viewContactPostalCode" readonly>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Ciudad</label>
+                            <input type="text" class="form-control" id="viewContactCity" readonly>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Provincia</label>
+                            <input type="text" class="form-control" id="viewContactProvince" readonly>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Consulta</label>
+                        <textarea class="form-control" id="viewContactInquiry" rows="4" readonly></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Estado</label>
+                        <select class="form-control" id="editContactStatus">
+                            <option value="Nuevo">Nuevo</option>
+                            <option value="En Proceso">En Proceso</option>
+                            <option value="Completado">Completado</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-danger" id="saveContactChanges">Guardar Estado</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="/static/js/appointment_management.js"></script>
+<script src="/static/js/contacts_management.js"></script>
 {% endblock %}
