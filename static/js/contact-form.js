@@ -7,8 +7,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Get form data
             const formData = new FormData(contactForm);
-            const formObject = {};
-            formData.forEach((value, key) => formObject[key] = value);
+            const formObject = Object.fromEntries(formData.entries());
             
             // Disable form while submitting
             const submitButton = contactForm.querySelector('button[type="submit"]');

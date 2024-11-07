@@ -253,4 +253,65 @@
 <!-- Edit Appointment Modal -->
 [... rest of the existing modals ...]
 
+<!-- View Contact Modal -->
+<div class="modal fade" id="viewContactModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title">Detalles del Contacto</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="editContactId">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="viewContactName" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Email</label>
+                        <input type="email" class="form-control" id="viewContactEmail" readonly>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Teléfono</label>
+                        <input type="tel" class="form-control" id="viewContactPhone" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Código Postal</label>
+                        <input type="text" class="form-control" id="viewContactPostalCode" readonly>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Ciudad</label>
+                        <input type="text" class="form-control" id="viewContactCity" readonly>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Provincia</label>
+                        <input type="text" class="form-control" id="viewContactProvince" readonly>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Consulta</label>
+                    <textarea class="form-control" id="viewContactInquiry" rows="4" readonly></textarea>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Estado</label>
+                    <select class="form-control" id="editContactStatus">
+                        <option value="Nuevo">Nuevo</option>
+                        <option value="En Proceso">En Proceso</option>
+                        <option value="Completado">Completado</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                <button type="button" class="btn btn-danger" id="saveContactChanges">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
