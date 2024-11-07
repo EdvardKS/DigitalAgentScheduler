@@ -112,10 +112,6 @@ def send_contact_form_notification(form_data):
             'nombre': form_data['nombre'],
             'email': form_data['email'],
             'telefono': form_data['telefono'],
-            'direccion': form_data['direccion'],
-            'codigoPostal': form_data['codigoPostal'],
-            'ciudad': form_data['ciudad'],
-            'provincia': form_data['provincia'],
             'dudas': form_data['dudas']
         }
         
