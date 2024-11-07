@@ -25,13 +25,15 @@ document.addEventListener('DOMContentLoaded', () => {
             'En Proceso': 'info',
             'Completado': 'success'
         };
-        return statusClasses[status] || 'secondary';
+        return `bg-${statusClasses[status] || 'secondary'}`;
     }
 
     // Update pagination
     function updateContactPagination() {
         const totalPages = Math.ceil(filteredContacts.length / itemsPerPage);
         contactPagination.innerHTML = '';
+
+        if (totalPages <= 1) return;
 
         // Previous button
         const prevLi = document.createElement('li');
@@ -94,7 +96,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${formatPhoneNumber(contact.phone)}</td>
                 <td>${contact.city || '-'}</td>
                 <td>
-                    <span class="badge bg-${getStatusBadgeClass(contact.status)}">
+                    <span class="badge ${getStatusBadgeClass(contact.status)}">
                         ${contact.status}
                     </span>
                 </td>
@@ -131,7 +133,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('viewContactName').value = contact.name;
         document.getElementById('viewContactEmail').value = contact.email;
         document.getElementById('viewContactPhone').value = contact.phone || '';
-        document.getElementById('viewContactAddress').value = contact.address || '';
         document.getElementById('viewContactPostalCode').value = contact.postal_code || '';
         document.getElementById('viewContactCity').value = contact.city || '';
         document.getElementById('viewContactProvince').value = contact.province || '';
@@ -143,23 +144,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Load contacts
     function loadContacts() {
-        fetch('/api/contacts')
-            .then(response => {
-                if (response.status === 401) {
-                    window.location.reload();
-                    throw new Error('PIN verification required');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.contacts) {
-                    filteredContacts = filterContacts(data.contacts, currentContactFilter);
-                    displayContacts();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
+        fetch('/api/contacts', {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => {
+            if (response.status === 401) {
+                window.location.reload();
+                throw new Error('PIN verification required');
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.contacts) {
+                filteredContacts = filterContacts(data.contacts, currentContactFilter);
+                displayContacts();
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('danger', 'Error al cargar los contactos. Por favor, intente de nuevo.');
+        });
+    }
+
+    // Show alert message
+    function showAlert(type, message) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector('.card-body').prepend(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
     }
 
     // Save contact status changes
@@ -171,6 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
             },
             body: JSON.stringify({ status })
         })
@@ -179,13 +201,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data.message) {
                 viewContactModal.hide();
                 loadContacts();
+                showAlert('success', 'Estado del contacto actualizado correctamente');
             } else {
-                alert(data.error || 'Error updating contact status');
+                throw new Error(data.error || 'Error al actualizar el estado del contacto');
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('Error updating contact status. Please try again.');
+            showAlert('danger', error.message || 'Error al actualizar el estado del contacto. Por favor, intente de nuevo.');
         });
     });
 

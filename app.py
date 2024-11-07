@@ -59,7 +59,7 @@ def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
-            if request.is_xhr:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return jsonify({"error": "PIN verification required"}), 401
             return redirect(url_for('appointment_management'))
         return f(*args, **kwargs)
