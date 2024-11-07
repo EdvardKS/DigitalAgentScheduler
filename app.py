@@ -103,7 +103,6 @@ def index():
 def appointment_management():
     return render_template('appointment_management.html')
 
-# API Endpoints
 @app.route('/api/verify-pin', methods=['POST'])
 def verify_pin():
     data = request.get_json()
@@ -146,7 +145,6 @@ def get_appointments():
         logger.error(f"Error fetching appointments: {str(e)}", exc_info=True)
         return jsonify({"error": "Error fetching appointments", "details": str(e)}), 500
 
-
 @app.route('/api/contacts', methods=['GET'])
 @require_pin
 def get_contacts():
@@ -162,7 +160,6 @@ def get_contacts():
                 'name': contact.name,
                 'email': contact.email,
                 'phone': contact.phone,
-                'address': contact.address,
                 'postal_code': contact.postal_code,
                 'city': contact.city,
                 'province': contact.province,
@@ -213,7 +210,6 @@ def handle_contact_form():
             name=data['nombre'],
             email=data['email'],
             phone=data['telefono'],
-            address=data.get('direccion'),
             postal_code=data.get('codigoPostal'),
             city=data.get('ciudad'),
             province=data.get('provincia'),
