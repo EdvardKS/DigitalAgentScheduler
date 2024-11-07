@@ -123,5 +123,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
+
+        // Postal code validation
+        const postalCodeInput = contactForm.querySelector('input[name="codigoPostal"]');
+        if (postalCodeInput) {
+            postalCodeInput.addEventListener('input', function() {
+                this.value = this.value.replace(/[^0-9]/g, '');
+                if (this.value.length > 5) {
+                    this.value = this.value.slice(0, 5);
+                }
+            });
+        }
     }
 });
