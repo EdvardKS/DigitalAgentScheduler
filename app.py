@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, redirect, url_for
 from datetime import datetime, time, timedelta
 from chatbot import generate_response
 from functools import wraps
@@ -22,7 +22,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize rate limiting
-from datetime import datetime, timedelta
 from collections import defaultdict
 request_counts = defaultdict(list)
 RATE_LIMIT = 30  # requests per minute
@@ -55,80 +54,26 @@ app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5000')
 db.init_app(app)
 mail.init_app(app)
 
-def send_contact_confirmation_email(contact):
-    """Send confirmation email for contact form submission"""
-    try:
-        msg = Message(
-            'KIT CONSULTING - Confirmación de Contacto',
-            sender=app.config['MAIL_USERNAME'],
-            recipients=[contact.email]
-        )
-        
-        # Prepare template context
-        context = {
-            'name': contact.name,
-            'email': contact.email,
-            'phone': contact.phone,
-            'inquiry': contact.inquiry,
-            'logo_url': f"{app.config['BASE_URL']}/static/disenyo/SVG/01-LOGO.svg"
-        }
-        
-        msg.html = render_template('email/contact_confirmation.html', **context)
-        
-        # Send email
-        mail.send(msg)
-        logger.info(f"Contact confirmation email sent to {contact.email}")
-        
-    except Exception as e:
-        logger.error(f"Error sending contact confirmation email: {str(e)}")
-        raise
-
-def check_rate_limit(ip):
-    """Check if the request should be rate limited"""
-    now = datetime.now()
-    request_counts[ip] = [t for t in request_counts[ip] if now - t < timedelta(seconds=RATE_WINDOW)]
-    request_counts[ip].append(now)
-    return len(request_counts[ip]) <= RATE_LIMIT
-
-# Validation functions
-def validar_nombre(nombre):
-    return bool(re.match("^[A-Za-zÀ-ÿ\s]{2,100}$", nombre))
-
-def validar_correo(correo):
-    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", correo))
-
-def obtener_disponibilidad():
-    """Get available time slots excluding weekends and past times"""
-    dias_disponibles = []
-    now = datetime.now()
-    
-    # Get next 7 available weekdays
-    current_date = now.date()
-    while len(dias_disponibles) < 7:
-        if current_date.weekday() < 5:  # Monday = 0, Friday = 4
-            dias_disponibles.append(current_date.strftime("%Y-%m-%d"))
-        current_date += timedelta(days=1)
-    
-    horas_disponibles = ["10:30", "11:00", "11:30", "12:00", "12:30", "13:00", "13:30", "14:00"]
-    return dias_disponibles, horas_disponibles
-
 # Decorator for PIN protection
 def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
-            logger.warning("PIN verification required but not found in session")
-            return jsonify({"error": "PIN verification required"}), 401
+            if request.is_xhr:
+                return jsonify({"error": "PIN verification required"}), 401
+            return redirect(url_for('appointment_management'))
         return f(*args, **kwargs)
     return decorated_function
 
-# Routes
 @app.route('/')
 def index():
     return render_template('index.html')
 
 @app.route('/citas')
 def appointment_management():
+    # Clear any existing session
+    if 'pin_verified' not in session:
+        session['pin_verified'] = False
     return render_template('appointment_management.html')
 
 @app.route('/api/verify-pin', methods=['POST'])
@@ -137,10 +82,15 @@ def verify_pin():
     pin = data.get('pin')
     correct_pin = os.getenv('CHATBOT_PIN')
     
+    if not correct_pin:
+        logger.error("CHATBOT_PIN not configured in environment variables")
+        return jsonify({"error": "Server configuration error"}), 500
+    
     if pin == correct_pin:
         session['pin_verified'] = True
         logger.info("PIN verification successful")
         return jsonify({"success": True})
+    
     logger.warning("Invalid PIN attempt")
     return jsonify({"success": False})
 

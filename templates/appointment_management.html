@@ -1,5 +1,12 @@
 {% extends "base.html" %}
 
+{% block extra_js %}
+<!-- Required JavaScript dependencies -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/static/js/appointment_management.js"></script>
+<script src="/static/js/contacts_management.js"></script>
+{% endblock %}
+
 {% block content %}
 <div class="container mt-4">
     <!-- PIN Authentication Modal -->
@@ -11,8 +18,8 @@
                 </div>
                 <div class="modal-body">
                     <div class="form-group">
-                        <label for="pinInput">Ingrese el PIN</label>
-                        <input type="password" class="form-control" id="pinInput" maxlength="4">
+                        <label for="pinInput" class="form-label">Ingrese el PIN</label>
+                        <input type="password" class="form-control" id="pinInput" maxlength="4" autocomplete="off">
                         <div class="invalid-feedback">PIN inválido</div>
                     </div>
                 </div>
@@ -246,10 +253,4 @@
 <!-- Edit Appointment Modal -->
 [... rest of the existing modals ...]
 
-{% endblock %}
-
-{% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<script src="/static/js/appointment_management.js"></script>
-<script src="/static/js/contacts_management.js"></script>
 {% endblock %}
