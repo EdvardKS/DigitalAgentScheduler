@@ -7,8 +7,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const dashboardContent = document.getElementById('dashboardContent');
     const pinInput = document.getElementById('pinInput');
     const pinError = document.getElementById('pinError');
+    const editModal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
     
-    // Check if we need to show the PIN modal
+    // Pagination settings
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    let filteredAppointments = [];
+    let currentFilter = 'all';
+    let retryAttempts = 0;
+    const maxRetries = 3;
+    const retryDelay = 1000;
+
+    // Show PIN modal if needed
     if (document.getElementById('pinModal').dataset.bsShow === 'true') {
         pinModal.show();
     }
@@ -21,281 +31,315 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // PIN verification function
-    function verifyPin() {
-        const enteredPin = pinInput.value;
-        pinInput.classList.remove('is-invalid');
-        pinError.classList.add('d-none');
-        
-        fetch('/api/verify-pin', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ pin: enteredPin }),
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                pinModal.hide();
-                dashboardContent.style.display = 'block';
-                loadAppointments();
-                loadContacts();
-                initializeCharts();
-                
-                // Store authentication state
-                sessionStorage.setItem('pinVerified', 'true');
-            } else {
-                pinInput.classList.add('is-invalid');
-                pinError.classList.remove('d-none');
-                pinInput.value = '';
-                pinInput.focus();
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            pinError.textContent = 'Error de conexión. Por favor, intente de nuevo.';
-            pinError.classList.remove('d-none');
-        });
-    }
-
-    // Check authentication state on page load/refresh
-    if (!sessionStorage.getItem('pinVerified')) {
-        pinModal.show();
-    } else {
-        dashboardContent.style.display = 'block';
-        loadAppointments();
-        loadContacts();
-        initializeCharts();
-    }
-
     // Format phone number for display
     function formatPhoneNumber(phone) {
         if (!phone) return '-';
         return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
     }
 
+    // Show alert message
+    function showAlert(type, message, container = '.card-body') {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        `;
+        document.querySelector(container).prepend(alertDiv);
+        
+        setTimeout(() => {
+            alertDiv.remove();
+        }, 5000);
+    }
+
+    // PIN verification function with retry
+    async function verifyPin() {
+        const enteredPin = pinInput.value;
+        pinInput.classList.remove('is-invalid');
+        pinError.classList.add('d-none');
+        
+        try {
+            const response = await fetch('/api/verify-pin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ pin: enteredPin }),
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                pinModal.hide();
+                dashboardContent.style.display = 'block';
+                sessionStorage.setItem('pinVerified', 'true');
+                await loadData();
+            } else {
+                pinInput.classList.add('is-invalid');
+                pinError.classList.remove('d-none');
+                pinInput.value = '';
+                pinInput.focus();
+            }
+        } catch (error) {
+            console.error('Error:', error);
+            pinError.textContent = 'Error de conexión. Por favor, intente de nuevo.';
+            pinError.classList.remove('d-none');
+        }
+    }
+
+    // Load all data with retry mechanism
+    async function loadData(retry = true) {
+        try {
+            const [appointmentsData, contactsData] = await Promise.all([
+                loadAppointments(),
+                loadContacts()
+            ]);
+            
+            if (appointmentsData && contactsData) {
+                updateCharts(appointmentsData, contactsData);
+                updateSummaryCards(appointmentsData, contactsData);
+            }
+            
+            retryAttempts = 0;
+        } catch (error) {
+            console.error('Error loading data:', error);
+            if (retry && retryAttempts < maxRetries) {
+                retryAttempts++;
+                showAlert('warning', `Error al cargar datos. Reintentando (${retryAttempts}/${maxRetries})...`);
+                setTimeout(() => loadData(), retryDelay * retryAttempts);
+            } else {
+                showAlert('danger', 'Error al cargar los datos. Por favor, actualice la página.');
+            }
+        }
+    }
+
+    // Load appointments
+    async function loadAppointments() {
+        try {
+            const response = await fetch('/api/appointments');
+            if (response.status === 401) {
+                pinModal.show();
+                throw new Error('PIN verification required');
+            }
+            const data = await response.json();
+            if (data.appointments) {
+                filteredAppointments = filterAppointments(data.appointments, currentFilter);
+                displayAppointments();
+                return data.appointments;
+            }
+            return null;
+        } catch (error) {
+            console.error('Error:', error);
+            showAlert('danger', 'Error al cargar las citas. Por favor, intente de nuevo.');
+            throw error;
+        }
+    }
+
+    // Filter appointments
+    function filterAppointments(appointments, filter) {
+        const today = new Date().toISOString().split('T')[0];
+        
+        switch(filter) {
+            case 'today':
+                return appointments.filter(apt => apt.date === today);
+            case 'upcoming':
+                return appointments.filter(apt => apt.date > today);
+            case 'past':
+                return appointments.filter(apt => apt.date < today);
+            default:
+                return appointments;
+        }
+    }
+
+    // Update pagination
+    function updatePagination() {
+        const totalPages = Math.ceil(filteredAppointments.length / itemsPerPage);
+        const pagination = document.getElementById('pagination');
+        pagination.innerHTML = '';
+
+        if (totalPages <= 1) return;
+
+        // Previous button
+        const prevLi = document.createElement('li');
+        prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+        prevLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage - 1}">Anterior</a>`;
+        pagination.appendChild(prevLi);
+
+        // Page numbers
+        for (let i = 1; i <= totalPages; i++) {
+            const li = document.createElement('li');
+            li.className = `page-item ${currentPage === i ? 'active' : ''}`;
+            li.innerHTML = `<a class="page-link" href="#" data-page="${i}">${i}</a>`;
+            pagination.appendChild(li);
+        }
+
+        // Next button
+        const nextLi = document.createElement('li');
+        nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+        nextLi.innerHTML = `<a class="page-link" href="#" data-page="${currentPage + 1}">Siguiente</a>`;
+        pagination.appendChild(nextLi);
+
+        // Add click events
+        pagination.querySelectorAll('.page-link').forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const newPage = parseInt(e.target.dataset.page);
+                if (!isNaN(newPage) && newPage !== currentPage && newPage > 0 && newPage <= totalPages) {
+                    currentPage = newPage;
+                    displayAppointments();
+                }
+            });
+        });
+    }
+
+    // Display appointments
+    function displayAppointments() {
+        const start = (currentPage - 1) * itemsPerPage;
+        const end = start + itemsPerPage;
+        const paginatedAppointments = filteredAppointments.slice(start, end);
+        
+        const tbody = document.getElementById('appointmentsTableBody');
+        tbody.innerHTML = paginatedAppointments.map(apt => `
+            <tr>
+                <td>${new Date(apt.date).toLocaleDateString('es-ES')}</td>
+                <td>${apt.time}</td>
+                <td>${apt.name}</td>
+                <td>${apt.email}</td>
+                <td>${formatPhoneNumber(apt.phone)}</td>
+                <td>${apt.service}</td>
+                <td>
+                    <span class="badge bg-${getStatusBadgeClass(apt.status)}">
+                        ${apt.status}
+                    </span>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-outline-danger edit-appointment" data-id="${apt.id}">
+                        <i data-feather="edit-2"></i>
+                    </button>
+                </td>
+            </tr>
+        `).join('');
+
+        // Update feather icons
+        feather.replace();
+
+        // Update pagination
+        updatePagination();
+        
+        // Update total records count
+        document.getElementById('totalRecords').textContent = filteredAppointments.length;
+
+        // Add event listeners for edit buttons
+        document.querySelectorAll('.edit-appointment').forEach(button => {
+            button.addEventListener('click', () => editAppointment(button.dataset.id));
+        });
+    }
+
+    // Get status badge class
+    function getStatusBadgeClass(status) {
+        const statusClasses = {
+            'Pendiente': 'warning',
+            'Confirmado': 'success',
+            'Cancelado': 'danger',
+            'Completado': 'info'
+        };
+        return statusClasses[status] || 'secondary';
+    }
+
     // Initialize Charts
     function initializeCharts() {
-        // Services Distribution Chart
-        const servicesCtx = document.getElementById('servicesChart').getContext('2d');
-        new Chart(servicesCtx, {
-            type: 'pie',
-            data: {
-                labels: ['Inteligencia Artificial', 'Ventas Digitales', 'Estrategia y Rendimiento'],
-                datasets: [{
-                    data: [0, 0, 0],
-                    backgroundColor: [
-                        '#d8001d',
-                        '#ff6384',
-                        '#ff9f40'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
+        const charts = {
+            services: {
+                ctx: document.getElementById('servicesChart').getContext('2d'),
+                config: {
+                    type: 'pie',
+                    data: {
+                        labels: ['Inteligencia Artificial', 'Ventas Digitales', 'Estrategia y Rendimiento'],
+                        datasets: [{
+                            data: [0, 0, 0],
+                            backgroundColor: ['#d8001d', '#ff6384', '#ff9f40']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom'
+                            }
+                        }
                     }
                 }
-            }
-        });
-
-        // Timeline Chart
-        const timelineCtx = document.getElementById('timelineChart').getContext('2d');
-        new Chart(timelineCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Citas por día',
-                    data: [],
-                    borderColor: '#d8001d',
-                    tension: 0.1
-                }]
             },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
+            timeline: {
+                ctx: document.getElementById('timelineChart').getContext('2d'),
+                config: {
+                    type: 'line',
+                    data: {
+                        labels: [],
+                        datasets: [{
+                            label: 'Citas por día',
+                            data: [],
+                            borderColor: '#d8001d',
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
                         }
                     }
                 }
             }
-        });
+        };
 
-        // Contact Status Chart
-        const contactStatusCtx = document.getElementById('contactStatusChart').getContext('2d');
-        new Chart(contactStatusCtx, {
-            type: 'pie',
-            data: {
-                labels: ['Nuevo', 'En Proceso', 'Completado'],
-                datasets: [{
-                    data: [0, 0, 0],
-                    backgroundColor: [
-                        '#ffc107',
-                        '#17a2b8',
-                        '#28a745'
-                    ]
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: {
-                    legend: {
-                        position: 'bottom'
-                    }
-                }
-            }
-        });
-
-        // Contact Timeline Chart
-        const contactTimelineCtx = document.getElementById('contactTimelineChart').getContext('2d');
-        new Chart(contactTimelineCtx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'Consultas por día',
-                    data: [],
-                    borderColor: '#d8001d',
-                    tension: 0.1
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1
-                        }
-                    }
-                }
-            }
+        // Create charts
+        Object.keys(charts).forEach(key => {
+            new Chart(charts[key].ctx, charts[key].config);
         });
     }
 
     // Update Charts
     function updateCharts(appointments, contacts) {
-        // Update Services Distribution
-        const serviceCounts = {
-            'Inteligencia Artificial': 0,
-            'Ventas Digitales': 0,
-            'Estrategia y Rendimiento': 0
-        };
+        try {
+            // Update Services Distribution
+            const servicesChart = Chart.getChart('servicesChart');
+            if (servicesChart) {
+                const serviceCounts = appointments.reduce((acc, apt) => {
+                    acc[apt.service] = (acc[apt.service] || 0) + 1;
+                    return acc;
+                }, {});
 
-        appointments.forEach(apt => {
-            if (serviceCounts.hasOwnProperty(apt.service)) {
-                serviceCounts[apt.service]++;
+                servicesChart.data.datasets[0].data = [
+                    serviceCounts['Inteligencia Artificial'] || 0,
+                    serviceCounts['Ventas Digitales'] || 0,
+                    serviceCounts['Estrategia y Rendimiento'] || 0
+                ];
+                servicesChart.update();
             }
-        });
 
-        const servicesChart = Chart.getChart('servicesChart');
-        servicesChart.data.datasets[0].data = Object.values(serviceCounts);
-        servicesChart.update();
+            // Update Timeline
+            const timelineChart = Chart.getChart('timelineChart');
+            if (timelineChart) {
+                const dateGroups = appointments.reduce((acc, apt) => {
+                    acc[apt.date] = (acc[apt.date] || 0) + 1;
+                    return acc;
+                }, {});
 
-        // Update Timeline
-        const dateGroups = {};
-        appointments.forEach(apt => {
-            if (!dateGroups[apt.date]) {
-                dateGroups[apt.date] = 0;
+                const sortedDates = Object.keys(dateGroups).sort();
+                timelineChart.data.labels = sortedDates;
+                timelineChart.data.datasets[0].data = sortedDates.map(date => dateGroups[date]);
+                timelineChart.update();
             }
-            dateGroups[apt.date]++;
-        });
-
-        const sortedDates = Object.keys(dateGroups).sort();
-        const timelineChart = Chart.getChart('timelineChart');
-        timelineChart.data.labels = sortedDates;
-        timelineChart.data.datasets[0].data = sortedDates.map(date => dateGroups[date]);
-        timelineChart.update();
-
-        // Update Contact Status Chart
-        const statusCounts = {
-            'Nuevo': 0,
-            'En Proceso': 0,
-            'Completado': 0
-        };
-
-        contacts.forEach(contact => {
-            if (statusCounts.hasOwnProperty(contact.status)) {
-                statusCounts[contact.status]++;
-            }
-        });
-
-        const contactStatusChart = Chart.getChart('contactStatusChart');
-        contactStatusChart.data.datasets[0].data = Object.values(statusCounts);
-        contactStatusChart.update();
-
-        // Update Contact Timeline
-        const contactDateGroups = {};
-        contacts.forEach(contact => {
-            const date = contact.created_at.split(' ')[0];
-            if (!contactDateGroups[date]) {
-                contactDateGroups[date] = 0;
-            }
-            contactDateGroups[date]++;
-        });
-
-        const sortedContactDates = Object.keys(contactDateGroups).sort();
-        const contactTimelineChart = Chart.getChart('contactTimelineChart');
-        contactTimelineChart.data.labels = sortedContactDates;
-        contactTimelineChart.data.datasets[0].data = sortedContactDates.map(date => contactDateGroups[date]);
-        contactTimelineChart.update();
-    }
-
-    // Load appointments
-    function loadAppointments() {
-        fetch('/api/appointments')
-            .then(response => {
-                if (response.status === 401) {
-                    pinModal.show();
-                    throw new Error('PIN verification required');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.appointments) {
-                    filteredAppointments = filterAppointments(data.appointments, currentFilter);
-                    displayAppointments();
-                    loadContacts().then(contacts => {
-                        updateCharts(data.appointments, contacts);
-                        updateSummaryCards(data.appointments, contacts);
-                    });
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error loading appointments. Please try again.');
-            });
-    }
-
-    // Load contacts
-    function loadContacts() {
-        return fetch('/api/contacts')
-            .then(response => {
-                if (response.status === 401) {
-                    pinModal.show();
-                    throw new Error('PIN verification required');
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.contacts) {
-                    displayContacts(data.contacts);
-                    return data.contacts;
-                }
-                return [];
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Error loading contacts. Please try again.');
-                return [];
-            });
+        } catch (error) {
+            console.error('Error updating charts:', error);
+            showAlert('warning', 'Error al actualizar los gráficos');
+        }
     }
 
     // Update summary cards
@@ -311,84 +355,25 @@ document.addEventListener('DOMContentLoaded', () => {
             contacts.filter(contact => contact.status === 'Nuevo').length;
     }
 
-    // Display contacts
-    function displayContacts(contacts) {
-        const tbody = document.getElementById('contactsTableBody');
-        tbody.innerHTML = contacts.map(contact => `
-            <tr>
-                <td>${new Date(contact.created_at).toLocaleDateString('es-ES')}</td>
-                <td>${contact.name}</td>
-                <td>${contact.email}</td>
-                <td>${formatPhoneNumber(contact.phone)}</td>
-                <td>${contact.city || '-'}</td>
-                <td>
-                    <span class="badge bg-${getStatusBadgeClass(contact.status)}">
-                        ${contact.status}
-                    </span>
-                </td>
-                <td>
-                    <button class="btn btn-sm btn-outline-danger view-contact" data-id="${contact.id}">
-                        <i data-feather="eye"></i>
-                    </button>
-                </td>
-            </tr>
-        `).join('');
-
-        // Update feather icons
-        feather.replace();
-
-        // Add event listeners for view buttons
-        document.querySelectorAll('.view-contact').forEach(button => {
-            button.addEventListener('click', () => viewContact(button.dataset.id));
-        });
-    }
-
-    // View contact details
-    function viewContact(id) {
-        const contact = contacts.find(c => c.id === parseInt(id));
-        if (!contact) return;
-
-        document.getElementById('editContactId').value = id;
-        document.getElementById('viewContactName').value = contact.name;
-        document.getElementById('viewContactEmail').value = contact.email;
-        document.getElementById('viewContactPhone').value = contact.phone || '';
-        document.getElementById('viewContactPostalCode').value = contact.postal_code || '';
-        document.getElementById('viewContactCity').value = contact.city || '';
-        document.getElementById('viewContactProvince').value = contact.province || '';
-        document.getElementById('viewContactInquiry').value = contact.inquiry || '';
-        document.getElementById('editContactStatus').value = contact.status;
-
-        viewContactModal.show();
-    }
-
-    // Save contact changes
-    document.getElementById('saveContactChanges').addEventListener('click', () => {
-        const id = document.getElementById('editContactId').value;
-        const status = document.getElementById('editContactStatus').value;
-
-        fetch(`/api/contacts/${id}`, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ status })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.message) {
-                viewContactModal.hide();
-                loadContacts();
-            } else {
-                alert(data.error || 'Error updating contact status');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert('Error updating contact status. Please try again.');
+    // Filter dropdown handler
+    document.querySelectorAll('[data-filter]').forEach(filterLink => {
+        filterLink.addEventListener('click', (e) => {
+            e.preventDefault();
+            currentFilter = e.target.dataset.filter;
+            currentPage = 1;
+            loadAppointments();
         });
     });
 
-    // Refresh buttons
-    document.getElementById('refreshAppointments').addEventListener('click', loadAppointments);
-    document.getElementById('refreshContacts').addEventListener('click', loadContacts);
+    // Refresh button handler
+    document.getElementById('refreshAppointments').addEventListener('click', () => loadData(false));
+
+    // Initialize on load
+    if (sessionStorage.getItem('pinVerified')) {
+        dashboardContent.style.display = 'block';
+        initializeCharts();
+        loadData();
+    } else {
+        pinModal.show();
+    }
 });
