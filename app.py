@@ -146,6 +146,7 @@ def get_appointments():
         logger.error(f"Error fetching appointments: {str(e)}", exc_info=True)
         return jsonify({"error": "Error fetching appointments", "details": str(e)}), 500
 
+
 @app.route('/api/contacts', methods=['GET'])
 @require_pin
 def get_contacts():
