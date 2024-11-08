@@ -76,10 +76,12 @@ def require_pin(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# Session check endpoint
 @app.route('/api/check-session')
 def check_session():
     return jsonify({"authenticated": bool(session.get('pin_verified'))})
 
+# Enhanced PIN verification endpoint
 @app.route('/api/verify-pin', methods=['POST'])
 def verify_pin():
     try:
@@ -106,6 +108,7 @@ def verify_pin():
         logger.error(f"Error in PIN verification: {str(e)}")
         return jsonify({"success": False, "error": "Error de servidor"}), 500
 
+# Logout endpoint
 @app.route('/api/logout', methods=['POST'])
 def logout():
     try:
@@ -116,6 +119,7 @@ def logout():
         logger.error(f"Error during logout: {str(e)}")
         return jsonify({"success": False, "error": "Error during logout"}), 500
 
+# Main routes
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -124,7 +128,7 @@ def index():
 def appointment_management():
     return render_template('appointment_management.html')
 
-# Restoring omitted routes and functions
+# API endpoints
 @app.route('/api/contact-submissions', methods=['GET'])
 @require_pin
 def get_contact_submissions():
@@ -303,38 +307,7 @@ def chatbot_response():
             return jsonify({"error": "Empty message"}), 400
 
         conversation_history = data.get('conversation_history', [])
-        
-        # Generate response from OpenAI
         response = generate_response(message, conversation_history)
-        
-        # Check if response contains booking completion state
-        if "__STATE__" in response and "BOOKING_COMPLETE" in response:
-            # Extract the clean response without state data
-            clean_response = response.split('__STATE__')[0].strip()
-            
-            # Prepare a natural continuation prompt
-            continuation_context = {
-                'text': 'Tu cita ha sido programada exitosamente. Como asistente de KIT CONSULTING, ¿hay algo más en lo que pueda ayudarte? Por ejemplo, puedo explicarte más sobre:',
-                'is_user': False
-            }
-            
-            # Add the continuation context to conversation history
-            updated_history = conversation_history + [
-                {'text': message, 'is_user': True},
-                continuation_context
-            ]
-            
-            # Generate a natural continuation response
-            continuation_response = generate_response(
-                "Continúa la conversación de manera natural ofreciendo información sobre los servicios de KIT CONSULTING",
-                updated_history
-            )
-            
-            # Combine the booking confirmation with the natural continuation
-            final_response = f"{clean_response}\n\n{continuation_response}"
-            
-            return jsonify({"response": final_response})
-        
         return jsonify({"response": response})
 
     except Exception as e:
