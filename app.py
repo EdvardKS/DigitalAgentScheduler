@@ -31,6 +31,84 @@ MAX_FAILED_ATTEMPTS = 2  # Maximum failed PIN attempts before blocking
 BLOCK_DURATION = 30  # Block duration in minutes
 SESSION_DURATION = timedelta(days=7)  # Session duration for remember me
 
+# IP blocking functions
+def check_ip_block(ip):
+    try:
+        # Check if ip_blocks table exists, create if not
+        db.session.execute(text('''
+            CREATE TABLE IF NOT EXISTS ip_blocks (
+                ip_address VARCHAR(45) PRIMARY KEY,
+                failed_attempts INTEGER DEFAULT 0,
+                last_attempt TIMESTAMP,
+                blocked_until TIMESTAMP
+            )
+        '''))
+        db.session.commit()
+        
+        result = db.session.execute(text('''
+            SELECT failed_attempts, blocked_until 
+            FROM ip_blocks 
+            WHERE ip_address = :ip
+        '''), {'ip': ip}).fetchone()
+        
+        if result and result.blocked_until:
+            now = datetime.now()
+            if now < result.blocked_until:
+                remaining = int((result.blocked_until - now).total_seconds() / 60)
+                return False, remaining
+            else:
+                # Reset if block has expired
+                reset_failed_attempts(ip)
+                return True, 0
+                
+        return True, 0
+        
+    except Exception as e:
+        logger.error(f"Error checking IP block: {e}")
+        return True, 0  # Allow on error to prevent lockout
+
+def record_failed_attempt(ip):
+    try:
+        result = db.session.execute(text('''
+            INSERT INTO ip_blocks (ip_address, failed_attempts, last_attempt)
+            VALUES (:ip, 1, :now)
+            ON CONFLICT (ip_address) DO UPDATE
+            SET failed_attempts = ip_blocks.failed_attempts + 1,
+                last_attempt = :now,
+                blocked_until = CASE 
+                    WHEN ip_blocks.failed_attempts + 1 >= :max_attempts 
+                    THEN :block_until
+                    ELSE NULL
+                END
+            RETURNING failed_attempts, blocked_until
+        '''), {
+            'ip': ip,
+            'now': datetime.now(),
+            'max_attempts': MAX_FAILED_ATTEMPTS,
+            'block_until': datetime.now() + timedelta(minutes=BLOCK_DURATION)
+        }).fetchone()
+        
+        db.session.commit()
+        
+        if result.failed_attempts >= MAX_FAILED_ATTEMPTS:
+            return False, BLOCK_DURATION
+            
+        return True, 0
+        
+    except Exception as e:
+        logger.error(f"Error recording failed attempt: {e}")
+        return True, 0
+
+def reset_failed_attempts(ip):
+    try:
+        db.session.execute(text('''
+            DELETE FROM ip_blocks
+            WHERE ip_address = :ip
+        '''), {'ip': ip})
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Error resetting failed attempts: {e}")
+
 app = Flask(__name__)
 
 # Enhanced configuration with improved session settings
