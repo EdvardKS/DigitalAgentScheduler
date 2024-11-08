@@ -10,8 +10,6 @@ from sqlalchemy import func
 import logging
 import re
 from dotenv import load_dotenv
-from werkzeug.security import generate_password_hash, check_password_hash
-from collections import defaultdict
 
 # Load environment variables
 load_dotenv()
@@ -24,6 +22,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize rate limiting
+from datetime import datetime, timedelta
+from collections import defaultdict
 request_counts = defaultdict(list)
 RATE_LIMIT = 30  # requests per minute
 RATE_WINDOW = 60  # seconds
@@ -66,37 +66,12 @@ def check_rate_limit(ip):
     request_counts[ip].append(now)
     return len(request_counts[ip]) <= RATE_LIMIT
 
-def validate_password(password):
-    """Validate password complexity"""
-    errors = []
-    
-    if len(password) < 8:
-        errors.append("La contraseña debe tener al menos 8 caracteres")
-    
-    if not re.search(r"[A-Z]", password):
-        errors.append("La contraseña debe contener al menos una letra mayúscula")
-        
-    if not re.search(r"[a-z]", password):
-        errors.append("La contraseña debe contener al menos una letra minúscula")
-        
-    if not re.search(r"\d", password):
-        errors.append("La contraseña debe contener al menos un número")
-        
-    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        errors.append("La contraseña debe contener al menos un carácter especial")
-        
-    return (len(errors) == 0, errors[0] if errors else None)
-
-def is_legacy_pin(password):
-    """Check if the password is in the legacy PIN format"""
-    return len(password) == 4 and password.isdigit()
-
 # Enhanced PIN protection decorator
 def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
-            logger.warning("Unauthorized access attempt - Authentication required")
+            logger.warning("Unauthorized access attempt - PIN verification required")
             return jsonify({"error": "Unauthorized", "code": "AUTH_REQUIRED"}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -106,60 +81,31 @@ def require_pin(f):
 def check_session():
     return jsonify({"authenticated": bool(session.get('pin_verified'))})
 
-# Enhanced authentication endpoint
+# Enhanced PIN verification endpoint
 @app.route('/api/verify-pin', methods=['POST'])
 def verify_pin():
     try:
         data = request.get_json()
-        password = data.get('pin')  # Keeping pin field for backward compatibility
+        pin = data.get('pin')
         remember_me = data.get('remember_me', False)
-        stored_password = os.getenv('CHATBOT_PIN')
+        correct_pin = os.getenv('CHATBOT_PIN')
         
-        if not password or not stored_password:
-            logger.warning("Missing password in verification attempt")
-            return jsonify({"success": False, "error": "Contraseña requerida"}), 400
-
-        # Handle legacy PIN format
-        if is_legacy_pin(stored_password):
-            if password == stored_password:
-                logger.info("Legacy PIN verification successful")
-                session.permanent = remember_me
-                session['pin_verified'] = True
-                session['pin_timestamp'] = datetime.now().timestamp()
-                
-                # Hash and update the PIN if it's a new complex password
-                if not is_legacy_pin(password):
-                    is_valid, error = validate_password(password)
-                    if is_valid:
-                        stored_password = generate_password_hash(password)
-                        # Here you would typically update the stored password in your configuration
-                        logger.info("Updated to complex password format")
-                
-                return jsonify({"success": True})
-            else:
-                logger.warning("Invalid legacy PIN attempt")
-                return jsonify({"success": False, "error": "PIN inválido"}), 401
-
-        # Validate new password format
-        if not is_legacy_pin(password):
-            is_valid, error = validate_password(password)
-            if not is_valid:
-                logger.warning(f"Invalid password format: {error}")
-                return jsonify({"success": False, "error": error}), 400
-
-        # Verify complex password
-        if check_password_hash(stored_password, password):
-            logger.info("Password verification successful")
+        if not pin or not correct_pin:
+            logger.warning("Missing PIN in verification attempt")
+            return jsonify({"success": False, "error": "PIN inválido"}), 400
+        
+        if pin == correct_pin:
             session.permanent = remember_me
             session['pin_verified'] = True
             session['pin_timestamp'] = datetime.now().timestamp()
+            logger.info("PIN verification successful")
             return jsonify({"success": True})
             
-        logger.warning("Invalid password attempt")
-        return jsonify({"success": False, "error": "Contraseña inválida"}), 401
+        logger.warning("Invalid PIN attempt")
+        return jsonify({"success": False, "error": "PIN inválido"}), 401
         
     except Exception as e:
-        logger.error(f"Error in password verification: {str(e)}")
+        logger.error(f"Error in PIN verification: {str(e)}")
         return jsonify({"success": False, "error": "Error de servidor"}), 500
 
 # Logout endpoint
