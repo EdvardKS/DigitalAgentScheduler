@@ -8,12 +8,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const pinInput = document.getElementById('pinInput');
     const rememberMeCheckbox = document.getElementById('rememberMe');
 
-    // Pagination settings
-    let currentPage = 1;
-    const itemsPerPage = 10;
-    let filteredAppointments = [];
-    let currentFilter = 'all';
-
     // Check for existing session
     checkSession();
 
@@ -47,28 +41,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const errorDiv = document.createElement('div');
         errorDiv.className = `alert alert-${isBlocked ? 'danger' : 'warning'} mt-3`;
 
-        // Format message with remaining time if blocked
         if (isBlocked && remainingTime) {
             message = `${message}. Tiempo restante: ${remainingTime} minutos.`;
         }
         errorDiv.innerHTML = message;
         
-        // Remove any existing alerts
         const existingAlerts = document.querySelectorAll('.alert');
         existingAlerts.forEach(alert => alert.remove());
         
-        // Insert error message before the form
         pinForm.insertBefore(errorDiv, pinForm.firstChild);
         
-        // Handle form state
         if (isBlocked) {
-            // Disable all form elements when blocked
             pinInput.disabled = true;
             verifyPinBtn.disabled = true;
             rememberMeCheckbox.disabled = true;
-            pinInput.value = ''; // Clear the input
+            pinInput.value = '';
         } else {
-            // Enable form elements if not blocked
             pinInput.disabled = false;
             verifyPinBtn.disabled = false;
             rememberMeCheckbox.disabled = false;
@@ -81,22 +69,20 @@ document.addEventListener('DOMContentLoaded', () => {
     pinForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
-        // Don't submit if form is disabled (blocked)
         if (pinInput.disabled || verifyPinBtn.disabled) {
             return;
         }
 
-        // Validate PIN format
+        // Validate PIN length only
         const pin = pinInput.value.trim();
-        if (!pin.match(/^\d{1,11}$/)) {
-            showLoginError('El PIN debe contener entre 1 y 11 dígitos numéricos');
+        if (pin.length === 0 || pin.length > 11) {
+            showLoginError('El PIN debe tener entre 1 y 11 caracteres');
             return;
         }
 
         const rememberMe = rememberMeCheckbox.checked;
         const spinner = verifyPinBtn.querySelector('.spinner-border');
         
-        // Disable form and show spinner
         verifyPinBtn.disabled = true;
         spinner.classList.remove('d-none');
         
@@ -141,7 +127,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         })
         .finally(() => {
-            if (!pinInput.disabled) { // Only re-enable if not blocked
+            if (!pinInput.disabled) {
                 verifyPinBtn.disabled = false;
                 spinner.classList.add('d-none');
             }

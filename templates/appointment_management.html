@@ -42,8 +42,10 @@
                         </div>
                         <div class="form-group mb-3">
                             <label for="pinInput" class="form-label">PIN de Administrador</label>
-                            <input type="password" class="form-control" id="pinInput" maxlength="11" required pattern="\d{1,11}" autocomplete="current-password">
-                            <div class="invalid-feedback">El PIN debe tener entre 1 y 11 dígitos</div>
+                            <input type="password" class="form-control" id="pinInput" maxlength="11" required 
+                                   aria-label="Ingrese su PIN (letras, números y caracteres especiales permitidos)"
+                                   autocomplete="current-password">
+                            <div class="invalid-feedback">El PIN debe tener entre 1 y 11 caracteres</div>
                         </div>
                         <div class="form-check mb-3">
                             <input type="checkbox" class="form-check-input" id="rememberMe">
