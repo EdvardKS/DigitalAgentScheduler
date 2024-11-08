@@ -73,8 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const spinner = verifyPinBtn.querySelector('.spinner-border');
         
         // Validate PIN format
-        if (!pinInput.value.match(/^\d{4}$/)) {
-            showLoginError('El PIN debe ser 4 dígitos');
+        if (!pinInput.value.match(/^\d{11}$/)) {
+            showLoginError('El formato del PIN es incorrecto');
             return;
         }
 
