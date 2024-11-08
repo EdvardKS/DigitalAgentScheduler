@@ -60,25 +60,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 return message.substring(0, stateStart).trim();
             };
 
-            const extractStateData = (message) => {
-                if (typeof message !== 'string') return null;
-                const stateStart = message.indexOf('__STATE__');
-                const stateEnd = message.indexOf('__END__');
-                if (stateStart === -1 || stateEnd === -1) return null;
-                
-                const stateSection = message.substring(
-                    stateStart + '__STATE__'.length,
-                    stateEnd
-                );
-                const dataStart = stateSection.indexOf('__DATA__');
-                if (dataStart === -1) return null;
-                
-                return {
-                    state: stateSection.substring(0, dataStart),
-                    data: JSON.parse(stateSection.substring(dataStart + '__DATA__'.length))
-                };
-            };
-
             const sendMessage = async (message, isUser = true) => {
                 console.log(`Sending message (${isUser ? 'user' : 'bot'}):`, message);
                 try {
@@ -88,7 +69,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     messageDiv.innerHTML = `<div class="message-content">${displayMessage}</div>`;
                     elements.chatMessages.appendChild(messageDiv);
 
-                    // Store complete message in history but display cleaned version
+                    // Store complete message in history
                     conversationHistory.push({
                         text: message,
                         is_user: isUser
@@ -126,7 +107,17 @@ document.addEventListener('DOMContentLoaded', () => {
                             }, 0);
 
                             console.log('API response received:', response);
-                            await sendMessage(response.response, false);
+                            
+                            // Handle the response and maintain natural conversation flow
+                            if (response.response) {
+                                await sendMessage(response.response, false);
+                                
+                                // Enable input immediately after response is displayed
+                                elements.chatInput.disabled = false;
+                                elements.sendButton.disabled = false;
+                                elements.chatInput.focus();
+                            }
+                            
                             retryCount = 0;
 
                         } catch (error) {

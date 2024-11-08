@@ -307,7 +307,26 @@ def chatbot_response():
             return jsonify({"error": "Empty message"}), 400
 
         conversation_history = data.get('conversation_history', [])
+        
+        # Generate response while preserving state data
         response = generate_response(message, conversation_history)
+        
+        # Check if response contains state data indicating booking completion
+        if "__STATE__" in response and "BOOKING_COMPLETE" in response:
+            # Extract user data from state
+            state_start = response.index('__STATE__')
+            state_end = response.index('__END__')
+            state_data = response[state_start:state_end]
+            
+            # Generate a natural continuation response
+            continuation_prompt = "Perfecto, tu cita ha sido programada. ¿Hay algo más en lo que pueda ayudarte? Por ejemplo, puedo explicarte más sobre nuestros servicios de consultoría en IA o el programa Kit Consulting."
+            
+            # Remove state data and append continuation
+            clean_response = response[:state_start].strip()
+            final_response = f"{clean_response}\n\n{continuation_prompt}"
+            
+            return jsonify({"response": final_response})
+        
         return jsonify({"response": response})
 
     except Exception as e:
