@@ -17,3 +17,13 @@ class Appointment(db.Model):
     service = db.Column(db.String(100), nullable=False)
     status = db.Column(db.String(20), default='Pendiente')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class ContactSubmission(db.Model):
+    __tablename__ = 'contact_submission'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    nombre = db.Column(db.String(100), nullable=False)
+    email = db.Column(db.String(120), nullable=False)
+    telefono = db.Column(db.String(20), nullable=False)
+    dudas = db.Column(db.Text, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)

@@ -25,7 +25,7 @@
 
     <!-- Main Dashboard Content -->
     <div id="dashboardContent" style="display: none;">
-        <h2 class="text-danger mb-4">Panel de Gestión de Citas</h2>
+        <h2 class="text-danger mb-4">Panel de Gestión</h2>
         
         <!-- Analytics Charts -->
         <div class="row mb-4">
@@ -75,6 +75,33 @@
                         <h5 class="card-title">Próximas Citas</h5>
                         <p class="display-4" id="upcomingAppointments">0</p>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Submissions Table -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center bg-danger text-white">
+                <h5 class="mb-0">Consultas del Formulario de Contacto</h5>
+                <button class="btn btn-light btn-sm" id="refreshSubmissions">
+                    <i data-feather="refresh-cw"></i> Actualizar
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table">
+                        <thead class="sticky-top bg-white">
+                            <tr>
+                                <th>Fecha</th>
+                                <th>Nombre</th>
+                                <th>Email</th>
+                                <th>Teléfono</th>
+                                <th>Consulta</th>
+                            </tr>
+                        </thead>
+                        <tbody id="submissionsTableBody">
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>

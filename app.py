@@ -5,7 +5,7 @@ from chatbot import generate_response
 from functools import wraps
 from flask_mail import Mail
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email, send_contact_form_notification
-from models import db, Appointment
+from models import db, Appointment, ContactSubmission
 from sqlalchemy import func
 import logging
 import re
@@ -126,6 +126,32 @@ def verify_pin():
     logger.warning("Invalid PIN attempt")
     return jsonify({"success": False})
 
+@app.route('/api/contact-submissions', methods=['GET'])
+@require_pin
+def get_contact_submissions():
+    try:
+        logger.info("Fetching contact submissions from database")
+        submissions = ContactSubmission.query.order_by(ContactSubmission.created_at.desc()).all()
+        logger.info(f"Found {len(submissions)} contact submissions")
+        
+        submissions_list = []
+        for submission in submissions:
+            submission_data = {
+                'id': submission.id,
+                'nombre': submission.nombre,
+                'email': submission.email,
+                'telefono': submission.telefono,
+                'dudas': submission.dudas,
+                'created_at': submission.created_at.strftime('%Y-%m-%d %H:%M:%S')
+            }
+            submissions_list.append(submission_data)
+            logger.debug(f"Processed submission: {submission_data}")
+        
+        return jsonify({"submissions": submissions_list})
+    except Exception as e:
+        logger.error(f"Error fetching contact submissions: {str(e)}", exc_info=True)
+        return jsonify({"error": "Error fetching contact submissions", "details": str(e)}), 500
+
 @app.route('/api/appointments', methods=['GET'])
 @require_pin
 def get_appointments():
@@ -226,23 +252,18 @@ def handle_contact_form():
             }), 400
         
         try:
+            # Create contact submission record
+            submission = ContactSubmission(
+                nombre=data['nombre'],
+                email=data['email'],
+                telefono=data['telefono'],
+                dudas=data['dudas']
+            )
+            db.session.add(submission)
+            db.session.commit()
+            
             # Send email notifications
             send_contact_form_notification(data)
-            
-            # Create appointment record if needed
-            if data.get('requiere_cita', False):
-                appointment = Appointment(
-                    name=data['nombre'],
-                    email=data['email'],
-                    phone=data['telefono'],
-                    date=datetime.now().date() + timedelta(days=1),  # Schedule for tomorrow by default
-                    time="10:30",  # Default time slot
-                    service="Consulta General",
-                    status="Pendiente"
-                )
-                db.session.add(appointment)
-                db.session.commit()
-                logger.info(f"Created appointment from contact form: {appointment.id}")
             
             return jsonify({
                 "message": "Formulario enviado exitosamente",

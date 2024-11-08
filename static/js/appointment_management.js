@@ -19,6 +19,18 @@ document.addEventListener('DOMContentLoaded', () => {
         return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
     }
 
+    // Format date for display
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
+
     // PIN verification
     document.getElementById('verifyPin').addEventListener('click', () => {
         const enteredPin = document.getElementById('pinInput').value;
@@ -36,12 +48,48 @@ document.addEventListener('DOMContentLoaded', () => {
                 pinModal.hide();
                 dashboardContent.style.display = 'block';
                 loadAppointments();
+                loadContactSubmissions();
                 initializeCharts();
             } else {
                 document.getElementById('pinInput').classList.add('is-invalid');
             }
         });
     });
+
+    // Load contact submissions
+    function loadContactSubmissions() {
+        fetch('/api/contact-submissions')
+            .then(response => {
+                if (response.status === 401) {
+                    pinModal.show();
+                    throw new Error('PIN verification required');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.submissions) {
+                    displayContactSubmissions(data.submissions);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error loading contact submissions. Please try again.');
+            });
+    }
+
+    // Display contact submissions
+    function displayContactSubmissions(submissions) {
+        const tbody = document.getElementById('submissionsTableBody');
+        tbody.innerHTML = submissions.map(submission => `
+            <tr>
+                <td>${formatDate(submission.created_at)}</td>
+                <td>${submission.nombre}</td>
+                <td>${submission.email}</td>
+                <td>${formatPhoneNumber(submission.telefono)}</td>
+                <td>${submission.dudas}</td>
+            </tr>
+        `).join('');
+    }
 
     // Initialize Charts
     function initializeCharts() {
@@ -364,6 +412,9 @@ document.addEventListener('DOMContentLoaded', () => {
             loadAppointments();
         });
     });
+
+    // Add refresh handler for contact submissions
+    document.getElementById('refreshSubmissions').addEventListener('click', loadContactSubmissions);
 
     // Handle Enter key in PIN input
     document.getElementById('pinInput').addEventListener('keypress', (e) => {
