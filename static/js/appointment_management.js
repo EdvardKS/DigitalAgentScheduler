@@ -86,6 +86,13 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        // Validate PIN format
+        const pin = pinInput.value.trim();
+        if (!pin.match(/^\d{1,11}$/)) {
+            showLoginError('El PIN debe contener entre 1 y 11 dígitos numéricos');
+            return;
+        }
+
         const rememberMe = rememberMeCheckbox.checked;
         const spinner = verifyPinBtn.querySelector('.spinner-border');
         
@@ -99,7 +106,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({ 
-                pin: pinInput.value,
+                pin: pin,
                 remember_me: rememberMe
             }),
         })
