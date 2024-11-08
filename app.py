@@ -42,18 +42,38 @@ app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_pre_ping": True,
 }
 
-# Mail configuration with Gmail SMTP settings
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 587
-app.config['MAIL_USE_TLS'] = True
-app.config['MAIL_USE_SSL'] = False
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-app.config['MAIL_DEFAULT_SENDER'] = os.getenv('MAIL_USERNAME')
-app.config['MAIL_MAX_EMAILS'] = None
-app.config['MAIL_SUPPRESS_SEND'] = False
-app.config['MAIL_ASCII_ATTACHMENTS'] = False
-app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5000')
+# Email Configuration
+def configure_email():
+    """Configure email settings with error handling"""
+    required_vars = ['MAIL_USERNAME', 'MAIL_PASSWORD']
+    missing_vars = [var for var in required_vars if not os.getenv(var)]
+    
+    if missing_vars:
+        error_msg = f"Missing required email configuration: {', '.join(missing_vars)}"
+        logger.error(error_msg)
+        raise ValueError(error_msg)
+    
+    return {
+        'MAIL_SERVER': 'smtp.gmail.com',
+        'MAIL_PORT': 587,
+        'MAIL_USE_TLS': True,
+        'MAIL_USE_SSL': False,
+        'MAIL_USERNAME': os.getenv('MAIL_USERNAME'),
+        'MAIL_PASSWORD': os.getenv('MAIL_PASSWORD'),
+        'MAIL_DEFAULT_SENDER': os.getenv('MAIL_USERNAME'),
+        'MAIL_MAX_EMAILS': None,
+        'MAIL_SUPPRESS_SEND': False,
+        'MAIL_ASCII_ATTACHMENTS': False,
+        'BASE_URL': os.getenv('BASE_URL', 'http://localhost:5000')
+    }
+
+# Apply email configuration with error handling
+try:
+    app.config.update(configure_email())
+    logger.info("Email configuration loaded successfully")
+except Exception as e:
+    logger.error(f"Failed to configure email settings: {str(e)}")
+    raise
 
 # Initialize extensions
 db.init_app(app)
@@ -130,6 +150,10 @@ def contact():
 def test_email():
     """Test route for email functionality"""
     try:
+        # Verify email configuration
+        if not app.config['MAIL_USERNAME'] or not app.config['MAIL_PASSWORD']:
+            raise ValueError("Email configuration is incomplete")
+        
         msg = Message(
             'Test Email',
             sender=app.config['MAIL_USERNAME'],
@@ -139,6 +163,9 @@ def test_email():
         mail.send(msg)
         logger.info("Test email sent successfully")
         return jsonify({"message": "Test email sent successfully"}), 200
+    except ValueError as e:
+        logger.error(f"Email configuration error: {str(e)}")
+        return jsonify({"error": "Email configuration is incomplete"}), 500
     except Exception as e:
         logger.error(f"Error sending test email: {str(e)}")
         return jsonify({"error": str(e)}), 500
