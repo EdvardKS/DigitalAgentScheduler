@@ -27,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(error => {
                 console.error('Session check error:', error);
+                showLoginError('Error al verificar la sesión');
                 pinModal.show();
             });
     }
@@ -40,16 +41,41 @@ document.addEventListener('DOMContentLoaded', () => {
         feather.replace();
     }
 
-    function showLoginError(message = 'PIN inválido') {
+    function showLoginError(message = 'PIN inválido', isBlocked = false) {
         const pinInput = document.getElementById('pinInput');
-        pinInput.classList.add('is-invalid');
-        pinInput.nextElementSibling.textContent = message;
+        const errorDiv = document.createElement('div');
+        errorDiv.className = `alert alert-${isBlocked ? 'danger' : 'warning'} mt-3`;
+        errorDiv.innerHTML = message;
+        
+        // Remove any existing alerts
+        const existingAlerts = document.querySelectorAll('.alert');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        // Insert error message before the form
+        pinForm.insertBefore(errorDiv, pinForm.firstChild);
+        
+        // Clear and focus the input if not blocked
+        if (!isBlocked) {
+            pinInput.value = '';
+            pinInput.focus();
+        } else {
+            // Disable the form if blocked
+            pinInput.disabled = true;
+            verifyPinBtn.disabled = true;
+            
+            // Re-enable after block duration
+            setTimeout(() => {
+                pinInput.disabled = false;
+                verifyPinBtn.disabled = false;
+                errorDiv.remove();
+                pinInput.focus();
+            }, 30 * 60 * 1000); // 30 minutes
+        }
     }
 
     // Format phone number for display
     function formatPhoneNumber(phone) {
         if (!phone) return '-';
-        // Format: XXX XXX XXX
         return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
     }
 
@@ -92,18 +118,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 remember_me: rememberMe
             }),
         })
-        .then(response => response.json())
+        .then(response => {
+            if (response.status === 429) {
+                // Handle rate limiting/blocking
+                return response.json().then(data => {
+                    throw new Error(data.error || 'Demasiados intentos fallidos');
+                });
+            }
+            return response.json();
+        })
         .then(data => {
             if (data.success) {
                 showDashboard();
                 pinInput.value = '';
             } else {
-                showLoginError();
+                showLoginError(data.error || 'PIN inválido');
             }
         })
         .catch(error => {
             console.error('Login error:', error);
-            showLoginError('Error al verificar el PIN');
+            if (error.message.includes('Demasiados intentos')) {
+                showLoginError(error.message, true);
+            } else {
+                showLoginError('Error al verificar el PIN');
+            }
         })
         .finally(() => {
             verifyPinBtn.disabled = false;
@@ -218,7 +256,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update Charts
     function updateCharts(appointments) {
-        // Update Services Distribution
+        // Services Distribution
         const serviceCounts = {
             'Inteligencia Artificial': 0,
             'Ventas Digitales': 0,
@@ -235,7 +273,7 @@ document.addEventListener('DOMContentLoaded', () => {
         servicesChart.data.datasets[0].data = Object.values(serviceCounts);
         servicesChart.update();
 
-        // Update Timeline
+        // Timeline
         const dateGroups = {};
         appointments.forEach(apt => {
             if (!dateGroups[apt.date]) {
