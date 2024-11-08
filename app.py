@@ -6,7 +6,7 @@ from functools import wraps
 from flask_mail import Mail
 from email_utils import mail, send_appointment_confirmation, schedule_reminder_email, send_contact_form_notification
 from models import db, Appointment, ContactSubmission
-from sqlalchemy import func
+from sqlalchemy import func, text
 import logging
 import re
 from dotenv import load_dotenv
@@ -27,6 +27,8 @@ from collections import defaultdict
 request_counts = defaultdict(list)
 RATE_LIMIT = 30  # requests per minute
 RATE_WINDOW = 60  # seconds
+MAX_FAILED_ATTEMPTS = 2  # Maximum failed PIN attempts before blocking
+BLOCK_DURATION = 30  # Block duration in minutes
 
 app = Flask(__name__)
 
@@ -59,6 +61,88 @@ app.config.update(
 db.init_app(app)
 mail.init_app(app)
 
+def check_ip_block(ip):
+    """Check if an IP is blocked and handle failed attempts"""
+    try:
+        result = db.session.execute(text("""
+            SELECT failed_attempts, blocked_until 
+            FROM ip_blocks 
+            WHERE ip_address = :ip
+        """), {"ip": ip}).fetchone()
+
+        if result:
+            failed_attempts, blocked_until = result
+
+            # If blocked and block period hasn't expired
+            if blocked_until and blocked_until > datetime.now():
+                remaining_time = int((blocked_until - datetime.now()).total_seconds() / 60)
+                return False, remaining_time
+
+            # If block has expired, reset the record
+            if blocked_until and blocked_until <= datetime.now():
+                db.session.execute(text("""
+                    UPDATE ip_blocks 
+                    SET failed_attempts = 0, blocked_until = NULL 
+                    WHERE ip_address = :ip
+                """), {"ip": ip})
+                db.session.commit()
+                return True, 0
+
+        return True, 0
+
+    except Exception as e:
+        logger.error(f"Error checking IP block: {str(e)}")
+        return True, 0  # Allow access in case of database errors
+
+def record_failed_attempt(ip):
+    """Record a failed PIN attempt and block IP if necessary"""
+    try:
+        # Insert or update the record
+        db.session.execute(text("""
+            INSERT INTO ip_blocks (ip_address, failed_attempts, last_attempt)
+            VALUES (:ip, 1, NOW())
+            ON CONFLICT (ip_address) 
+            DO UPDATE SET 
+                failed_attempts = ip_blocks.failed_attempts + 1,
+                last_attempt = NOW(),
+                blocked_until = CASE 
+                    WHEN ip_blocks.failed_attempts + 1 >= :max_attempts 
+                    THEN NOW() + interval ':block_minutes minutes'
+                    ELSE NULL 
+                END;
+        """), {
+            "ip": ip, 
+            "max_attempts": MAX_FAILED_ATTEMPTS,
+            "block_minutes": BLOCK_DURATION
+        })
+        db.session.commit()
+
+        # Get updated record
+        result = db.session.execute(text("""
+            SELECT failed_attempts, blocked_until 
+            FROM ip_blocks 
+            WHERE ip_address = :ip
+        """), {"ip": ip}).fetchone()
+
+        if result and result[0] >= MAX_FAILED_ATTEMPTS:
+            return False, BLOCK_DURATION
+        return True, 0
+
+    except Exception as e:
+        logger.error(f"Error recording failed attempt: {str(e)}")
+        return True, 0
+
+def reset_failed_attempts(ip):
+    """Reset failed attempts for an IP after successful login"""
+    try:
+        db.session.execute(text("""
+            DELETE FROM ip_blocks 
+            WHERE ip_address = :ip
+        """), {"ip": ip})
+        db.session.commit()
+    except Exception as e:
+        logger.error(f"Error resetting failed attempts: {str(e)}")
+
 def check_rate_limit(ip):
     """Check if the request should be rate limited"""
     now = datetime.now()
@@ -76,6 +160,15 @@ def require_pin(f):
         return f(*args, **kwargs)
     return decorated_function
 
+# Main routes
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/citas')
+def appointment_management():
+    return render_template('appointment_management.html')
+
 # Session check endpoint
 @app.route('/api/check-session')
 def check_session():
@@ -89,7 +182,17 @@ def verify_pin():
         pin = data.get('pin')
         remember_me = data.get('remember_me', False)
         correct_pin = os.getenv('CHATBOT_PIN')
-        
+        ip = request.remote_addr
+
+        # Check if IP is blocked
+        allowed, block_minutes = check_ip_block(ip)
+        if not allowed:
+            logger.warning(f"Blocked IP {ip} attempted to verify PIN")
+            return jsonify({
+                "success": False, 
+                "error": f"Demasiados intentos fallidos. Por favor, espere {block_minutes} minutos."
+            }), 429
+
         if not pin or not correct_pin:
             logger.warning("Missing PIN in verification attempt")
             return jsonify({"success": False, "error": "PIN inválido"}), 400
@@ -98,9 +201,19 @@ def verify_pin():
             session.permanent = remember_me
             session['pin_verified'] = True
             session['pin_timestamp'] = datetime.now().timestamp()
+            reset_failed_attempts(ip)
             logger.info("PIN verification successful")
             return jsonify({"success": True})
-            
+        
+        # Record failed attempt
+        allowed, block_minutes = record_failed_attempt(ip)
+        if not allowed:
+            logger.warning(f"IP {ip} blocked after too many failed attempts")
+            return jsonify({
+                "success": False,
+                "error": f"Demasiados intentos fallidos. Por favor, espere {block_minutes} minutos."
+            }), 429
+
         logger.warning("Invalid PIN attempt")
         return jsonify({"success": False, "error": "PIN inválido"}), 401
         
@@ -118,15 +231,6 @@ def logout():
     except Exception as e:
         logger.error(f"Error during logout: {str(e)}")
         return jsonify({"success": False, "error": "Error during logout"}), 500
-
-# Main routes
-@app.route('/')
-def index():
-    return render_template('index.html')
-
-@app.route('/citas')
-def appointment_management():
-    return render_template('appointment_management.html')
 
 # API endpoints
 @app.route('/api/contact-submissions', methods=['GET'])
