@@ -10,6 +10,7 @@ from sqlalchemy import func
 import logging
 import re
 from dotenv import load_dotenv
+from werkzeug.security import generate_password_hash, check_password_hash
 
 # Load environment variables
 load_dotenv()
@@ -66,12 +67,31 @@ def check_rate_limit(ip):
     request_counts[ip].append(now)
     return len(request_counts[ip]) <= RATE_LIMIT
 
+def validate_password(password):
+    """Validate password complexity"""
+    if len(password) < 8:
+        return False, "La contraseña debe tener al menos 8 caracteres"
+    
+    if not re.search(r"[A-Z]", password):
+        return False, "La contraseña debe contener al menos una letra mayúscula"
+        
+    if not re.search(r"[a-z]", password):
+        return False, "La contraseña debe contener al menos una letra minúscula"
+        
+    if not re.search(r"\d", password):
+        return False, "La contraseña debe contener al menos un número"
+        
+    if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
+        return False, "La contraseña debe contener al menos un carácter especial"
+        
+    return True, None
+
 # Enhanced PIN protection decorator
 def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
-            logger.warning("Unauthorized access attempt - PIN verification required")
+            logger.warning("Unauthorized access attempt - Authentication required")
             return jsonify({"error": "Unauthorized", "code": "AUTH_REQUIRED"}), 401
         return f(*args, **kwargs)
     return decorated_function
@@ -81,31 +101,47 @@ def require_pin(f):
 def check_session():
     return jsonify({"authenticated": bool(session.get('pin_verified'))})
 
-# Enhanced PIN verification endpoint
+# Enhanced authentication endpoint
 @app.route('/api/verify-pin', methods=['POST'])
 def verify_pin():
     try:
         data = request.get_json()
-        pin = data.get('pin')
+        password = data.get('pin')  # Keeping pin field for backward compatibility
         remember_me = data.get('remember_me', False)
-        correct_pin = os.getenv('CHATBOT_PIN')
+        stored_password = os.getenv('CHATBOT_PIN')
         
-        if not pin or not correct_pin:
-            logger.warning("Missing PIN in verification attempt")
-            return jsonify({"success": False, "error": "PIN inválido"}), 400
-        
-        if pin == correct_pin:
+        if not password or not stored_password:
+            logger.warning("Missing password in verification attempt")
+            return jsonify({"success": False, "error": "Contraseña requerida"}), 400
+
+        # Validate password complexity for new passwords
+        if password != stored_password and len(password) > 4:  # Only validate if it's a new complex password
+            is_valid, error_message = validate_password(password)
+            if not is_valid:
+                logger.warning(f"Invalid password format: {error_message}")
+                return jsonify({"success": False, "error": error_message}), 400
+
+        # If it's the old PIN format, do direct comparison
+        if len(stored_password) == 4 and password == stored_password:
+            logger.info("Legacy PIN verification successful")
             session.permanent = remember_me
             session['pin_verified'] = True
             session['pin_timestamp'] = datetime.now().timestamp()
-            logger.info("PIN verification successful")
+            return jsonify({"success": True})
+
+        # For complex passwords, use secure comparison
+        if check_password_hash(stored_password, password):
+            logger.info("Password verification successful")
+            session.permanent = remember_me
+            session['pin_verified'] = True
+            session['pin_timestamp'] = datetime.now().timestamp()
             return jsonify({"success": True})
             
-        logger.warning("Invalid PIN attempt")
-        return jsonify({"success": False, "error": "PIN inválido"}), 401
+        logger.warning("Invalid password attempt")
+        return jsonify({"success": False, "error": "Contraseña inválida"}), 401
         
     except Exception as e:
-        logger.error(f"Error in PIN verification: {str(e)}")
+        logger.error(f"Error in password verification: {str(e)}")
         return jsonify({"success": False, "error": "Error de servidor"}), 500
 
 # Logout endpoint

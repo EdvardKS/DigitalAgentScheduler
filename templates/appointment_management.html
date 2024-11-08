@@ -15,18 +15,16 @@
         </div>
     `;
 
-    container.innerHTML += newHTML; // Añade el HTML al final del contenido dentro del contenedor
-
+    container.innerHTML += newHTML;
 </script>
 <div class="d-flex justify-content-center align-items-center" 
  style="height: 14vh !important; background: linear-gradient(to bottom, #d8001d, #8b0014);">
 </div>
 
-
 <div class="container mt-4 pt-5">
     <h2 class="mb-5 text-center text-danger">Panel de Gestión</h2>
 
-    <!-- PIN Authentication Modal -->
+    <!-- Password Authentication Modal -->
     <div class="modal fade" id="pinModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
@@ -38,12 +36,27 @@
                         <div class="text-center mb-4">
                             <img src="/static/disenyo/SVG/01-LOGO.svg" alt="Logo" class="mb-4" style="height: 60px;">
                             <h4>Acceso Seguro</h4>
-                            <p class="text-muted">Ingrese su PIN de administrador para acceder al panel</p>
+                            <p class="text-muted">Ingrese su contraseña de administrador para acceder al panel</p>
                         </div>
                         <div class="form-group mb-3">
-                            <label for="pinInput" class="form-label">PIN de Administrador</label>
-                            <input type="password" class="form-control" id="pinInput" maxlength="11" required pattern="\d{11}" autocomplete="current-password">
-                            <div class="invalid-feedback">PIN inválido</div>
+                            <label for="pinInput" class="form-label">Contraseña de Administrador</label>
+                            <div class="input-group">
+                                <input type="password" class="form-control" id="pinInput" required minlength="8" autocomplete="current-password">
+                                <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                                    <i data-feather="eye"></i>
+                                </button>
+                            </div>
+                            <div class="invalid-feedback">Contraseña inválida</div>
+                            <small class="form-text text-muted">
+                                La contraseña debe contener al menos:
+                                <ul class="mb-0">
+                                    <li>8 caracteres</li>
+                                    <li>Una letra mayúscula</li>
+                                    <li>Una letra minúscula</li>
+                                    <li>Un número</li>
+                                    <li>Un carácter especial (!@#$%^&*)</li>
+                                </ul>
+                            </small>
                         </div>
                         <div class="form-check mb-3">
                             <input type="checkbox" class="form-check-input" id="rememberMe">
