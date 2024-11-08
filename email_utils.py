@@ -7,7 +7,7 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.date import DateTrigger
 from dotenv import load_dotenv
 import time
-from smtplib import SMTPException, SMTPAuthenticationError, SMTPServerDisconnected
+from smtplib import SMTPException
 
 # Configure logging
 logging.basicConfig(
@@ -24,7 +24,7 @@ scheduler = BackgroundScheduler()
 scheduler.start()
 
 def retry_on_failure(func):
-    """Decorator to retry failed email operations with enhanced error handling"""
+    """Decorator to retry failed email operations"""
     def wrapper(*args, **kwargs):
         max_retries = 3
         retry_delay = 1  # seconds
@@ -32,29 +32,13 @@ def retry_on_failure(func):
         for attempt in range(max_retries):
             try:
                 return func(*args, **kwargs)
-            except SMTPAuthenticationError as e:
-                logger.error(f"SMTP Authentication Error: {str(e)}")
-                logger.error("Please verify your email credentials")
-                raise
-            except SMTPServerDisconnected as e:
-                if attempt == max_retries - 1:
-                    logger.error(f"SMTP Server Disconnected: {str(e)}")
-                    raise
-                logger.warning(f"Server disconnected, attempting to reconnect... (Attempt {attempt + 1})")
-                time.sleep(retry_delay)
-            except SMTPException as e:
-                if attempt == max_retries - 1:
-                    logger.error(f"SMTP Error: {str(e)}")
-                    raise
-                logger.warning(f"Attempt {attempt + 1} failed, retrying in {retry_delay}s: {str(e)}")
-                time.sleep(retry_delay)
             except Exception as e:
                 if attempt == max_retries - 1:
-                    logger.error(f"Unexpected error: {str(e)}")
+                    logger.error(f"Final attempt failed for {func.__name__}: {str(e)}")
                     raise
-                logger.warning(f"Attempt {attempt + 1} failed, retrying in {retry_delay}s: {str(e)}")
+                logger.warning(f"Attempt {attempt + 1} failed for {func.__name__}, retrying in {retry_delay}s: {str(e)}")
                 time.sleep(retry_delay)
-            retry_delay *= 2
+                retry_delay *= 2
     return wrapper
 
 @retry_on_failure
@@ -76,7 +60,6 @@ def send_appointment_confirmation(appointment):
             'date': appointment.date.strftime('%d de %B de %Y'),
             'time': appointment.time,
             'email': appointment.email,
-            'phone': getattr(appointment, 'phone', None),
             'contact_email': current_app.config['MAIL_USERNAME'],
             'cancel_url': f"{current_app.config['BASE_URL']}/cancel/{appointment.id}",
             'reschedule_url': f"{current_app.config['BASE_URL']}/reschedule/{appointment.id}"
@@ -97,8 +80,11 @@ def send_appointment_confirmation(appointment):
         mail.send(msg)
         logger.info(f"Confirmation email sent successfully for appointment {appointment.id}")
         
+    except SMTPException as e:
+        logger.error(f"SMTP error sending confirmation email for appointment {appointment.id}: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error sending confirmation email for appointment {appointment.id}: {str(e)}")
+        logger.error(f"Unexpected error sending confirmation email for appointment {appointment.id}: {str(e)}")
         raise
 
 @retry_on_failure
@@ -148,13 +134,16 @@ def send_contact_form_notification(form_data):
         mail.send(user_msg)
         logger.info("Contact form notification emails sent successfully")
         
+    except SMTPException as e:
+        logger.error(f"SMTP error sending contact form notification: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error sending contact form notification: {str(e)}")
+        logger.error(f"Unexpected error sending contact form notification: {str(e)}")
         raise
 
 @retry_on_failure
 def send_appointment_reminder(appointment):
-    """Send reminder email for an upcoming appointment"""
+    """Send reminder email for an upcoming appointment with enhanced error handling"""
     try:
         logger.info(f"Preparing reminder email for appointment {appointment.id}")
         
@@ -171,7 +160,6 @@ def send_appointment_reminder(appointment):
             'date': appointment.date.strftime('%d de %B de %Y'),
             'time': appointment.time,
             'email': appointment.email,
-            'phone': getattr(appointment, 'phone', None),
             'contact_email': current_app.config['MAIL_USERNAME'],
             'cancel_url': f"{current_app.config['BASE_URL']}/cancel/{appointment.id}",
             'reschedule_url': f"{current_app.config['BASE_URL']}/reschedule/{appointment.id}"
@@ -192,12 +180,15 @@ def send_appointment_reminder(appointment):
         mail.send(msg)
         logger.info(f"Reminder email sent successfully for appointment {appointment.id}")
         
+    except SMTPException as e:
+        logger.error(f"SMTP error sending reminder email for appointment {appointment.id}: {str(e)}")
+        raise
     except Exception as e:
-        logger.error(f"Error sending reminder email for appointment {appointment.id}: {str(e)}")
+        logger.error(f"Unexpected error sending reminder email for appointment {appointment.id}: {str(e)}")
         raise
 
 def schedule_reminder_email(appointment):
-    """Schedule a reminder email for 24 hours before the appointment"""
+    """Schedule a reminder email for 24 hours before the appointment with improved logging"""
     try:
         reminder_time = datetime.combine(appointment.date, 
                                        datetime.strptime(appointment.time, '%H:%M').time()) - timedelta(days=1)
