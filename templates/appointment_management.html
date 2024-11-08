@@ -1,16 +1,31 @@
 {% extends "base.html" %}
 
 {% block content %}
+<script>
+    var navbar = document.getElementById('navbarNav');
+    navbar.className = ''; // Elimina todas las clases
+    navbar.classList.add('d-none'); // Añade la clase d-none
+    var container = document.querySelector('.navbar .container');
+    var newHTML = `
+        <div class="d-flex justify-content-between align-items-center w-100">
+        <div></div>
+            <button class="btn btn-danger" id="logoutBtn">
+                <i data-feather="log-out"></i> Cerrar Sesión
+            </button>
+        </div>
+    `;
 
+    container.innerHTML += newHTML; // Añade el HTML al final del contenido dentro del contenedor
+
+</script>
 <div class="d-flex justify-content-center align-items-center" 
- style="height: 30vh !important; background: linear-gradient(to bottom, #d8001d, #8b0014);">
-<!-- Contenido del div -->
-    
-    <img src="static/disenyo/SVG/01-LOGO.svg" alt="Kit Consulting Navegatel" height="90">
+ style="height: 14vh !important; background: linear-gradient(to bottom, #d8001d, #8b0014);">
 </div>
 
 
 <div class="container mt-4 pt-5">
+    <h2 class="mb-5 text-center text-danger">Panel de Gestión</h2>
+
     <!-- PIN Authentication Modal -->
     <div class="modal fade" id="pinModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
@@ -74,13 +89,8 @@
 
     <!-- Main Dashboard Content -->
     <div id="dashboardContent" style="display: none;">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2 class="text-danger mb-0">Panel de Gestión</h2>
-            <button class="btn btn-outline-danger" id="logoutBtn">
-                <i data-feather="log-out"></i> Cerrar Sesión
-            </button>
-        </div>
         
+
         <!-- Analytics Charts -->
         <div class="row mb-4">
             <div class="col-md-6 mb-4">
