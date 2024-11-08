@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             if (data.success) {
                 pinModal.hide();
-                dashboardContent.style.display = 'block';
+                dashboardContent.style.display = 'flex'; // Changed from 'block' to 'flex'
                 loadAppointments();
                 initializeCharts();
             } else {
