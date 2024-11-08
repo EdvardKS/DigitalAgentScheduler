@@ -1,7 +1,16 @@
 {% extends "base.html" %}
 
 {% block content %}
-<div class="container mt-4">
+
+<div class="d-flex justify-content-center align-items-center" 
+ style="height: 30vh !important; background: linear-gradient(to bottom, #d8001d, #8b0014);">
+<!-- Contenido del div -->
+    
+    <img src="static/disenyo/SVG/01-LOGO.svg" alt="Kit Consulting Navegatel" height="90">
+</div>
+
+
+<div class="container mt-4 pt-5">
     <!-- PIN Authentication Modal -->
     <div class="modal fade" id="pinModal" data-bs-backdrop="static" tabindex="-1">
         <div class="modal-dialog modal-dialog-centered">
@@ -30,6 +39,34 @@
                             Iniciar Sesión
                         </button>
                     </form>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Summary Cards -->
+    <div class="d-flex justify-content-between align-items-center">
+        <div class="">
+            <div class="">
+                <div class="">
+                    <h5 class="">Total de Citas</h5>
+                    <p class="display-4" id="totalAppointments">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="">
+            <div class="">
+                <div class="">
+                    <h5 class="">Citas de Hoy</h5>
+                    <p class="display-4" id="todayAppointments">0</p>
+                </div>
+            </div>
+        </div>
+        <div class="">
+            <div class="">
+                <div class="">
+                    <h5 class="">Próximas Citas</h5>
+                    <p class="display-4" id="upcomingAppointments">0</p>
                 </div>
             </div>
         </div>
@@ -68,33 +105,6 @@
             </div>
         </div>
 
-        <!-- Summary Cards -->
-        <div class="row mb-4">
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Total de Citas</h5>
-                        <p class="display-4" id="totalAppointments">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Citas de Hoy</h5>
-                        <p class="display-4" id="todayAppointments">0</p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-4 mb-3">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Próximas Citas</h5>
-                        <p class="display-4" id="upcomingAppointments">0</p>
-                    </div>
-                </div>
-            </div>
-        </div>
 
         <!-- Contact Submissions Table -->
         <div class="card mb-4">
@@ -104,7 +114,7 @@
                     <i data-feather="refresh-cw"></i> Actualizar
                 </button>
             </div>
-            <div class="card-body">
+            <div class="card-body h-auto">
                 <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
                     <table class="table">
                         <thead class="sticky-top bg-white">
@@ -144,7 +154,7 @@
                     </div>
                 </div>
             </div>
-            <div class="card-body">
+            <div class="card-body h-auto">
                 <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
                     <table class="table">
                         <thead class="sticky-top bg-white">
