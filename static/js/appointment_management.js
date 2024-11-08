@@ -72,11 +72,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const rememberMe = document.getElementById('rememberMe').checked;
         const spinner = verifyPinBtn.querySelector('.spinner-border');
         
-        // Validate PIN format
-        if (!pinInput.value.match(/^\d{4}$/)) {
-            showLoginError('El PIN debe ser 4 dígitos');
-            return;
-        }
 
         // Disable form and show spinner
         verifyPinBtn.disabled = true;
