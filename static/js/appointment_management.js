@@ -6,6 +6,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const verifyPinBtn = document.getElementById('verifyPin');
     const logoutBtn = document.getElementById('logoutBtn');
     const pinInput = document.getElementById('pinInput');
+    const rememberMeCheckbox = document.getElementById('rememberMe');
 
     // Pagination settings
     let currentPage = 1;
@@ -48,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Format message with remaining time if blocked
         if (isBlocked && remainingTime) {
-            message = `${message} Tiempo restante: ${remainingTime} minutos`;
+            message = `${message}. Tiempo restante: ${remainingTime} minutos.`;
         }
         errorDiv.innerHTML = message;
         
@@ -61,33 +62,19 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Handle form state
         if (isBlocked) {
-            // Disable form elements when blocked
+            // Disable all form elements when blocked
             pinInput.disabled = true;
             verifyPinBtn.disabled = true;
-            document.getElementById('rememberMe').disabled = true;
+            rememberMeCheckbox.disabled = true;
+            pinInput.value = ''; // Clear the input
         } else {
-            // Clear and focus input only if not blocked
+            // Enable form elements if not blocked
+            pinInput.disabled = false;
+            verifyPinBtn.disabled = false;
+            rememberMeCheckbox.disabled = false;
             pinInput.value = '';
             pinInput.focus();
         }
-    }
-
-    // Format phone number for display
-    function formatPhoneNumber(phone) {
-        if (!phone) return '-';
-        return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
-    }
-
-    // Format date for display
-    function formatDate(dateStr) {
-        const date = new Date(dateStr);
-        return date.toLocaleDateString('es-ES', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        });
     }
 
     // PIN form submission
@@ -99,15 +86,9 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        const rememberMe = document.getElementById('rememberMe').checked;
+        const rememberMe = rememberMeCheckbox.checked;
         const spinner = verifyPinBtn.querySelector('.spinner-border');
         
-        // Validate PIN format
-        if (!pinInput.value.match(/^\d{4}$/)) {
-            showLoginError('El PIN debe ser 4 dígitos');
-            return;
-        }
-
         // Disable form and show spinner
         verifyPinBtn.disabled = true;
         spinner.classList.remove('d-none');
@@ -136,7 +117,6 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             if (data.success) {
                 showDashboard();
-                pinInput.value = '';
             } else {
                 showLoginError(data.error || 'PIN inválido');
             }
@@ -177,6 +157,21 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     });
 
-    // Remaining functions from original code (loadAppointments, etc.) would be added here...
-    // This preserves the rest of the functionality while focusing on the specific modifications
+    // Format phone number for display
+    function formatPhoneNumber(phone) {
+        if (!phone) return '-';
+        return phone.replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3');
+    }
+
+    // Format date for display
+    function formatDate(dateStr) {
+        const date = new Date(dateStr);
+        return date.toLocaleDateString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    }
 });
