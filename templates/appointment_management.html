@@ -4,20 +4,32 @@
 <div class="container mt-4">
     <!-- PIN Authentication Modal -->
     <div class="modal fade" id="pinModal" data-bs-backdrop="static" tabindex="-1">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header bg-danger text-white">
-                    <h5 class="modal-title">Autenticación del Panel de Gestión</h5>
+                    <h5 class="modal-title">Panel de Gestión - Iniciar Sesión</h5>
                 </div>
                 <div class="modal-body">
-                    <div class="form-group">
-                        <label for="pinInput">Ingrese el PIN</label>
-                        <input type="password" class="form-control" id="pinInput" maxlength="4">
-                        <div class="invalid-feedback">PIN inválido</div>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-danger" id="verifyPin">Verificar</button>
+                    <form id="pinForm" class="needs-validation" novalidate>
+                        <div class="text-center mb-4">
+                            <img src="/static/disenyo/SVG/01-LOGO.svg" alt="Logo" class="mb-4" style="height: 60px;">
+                            <h4>Acceso Seguro</h4>
+                            <p class="text-muted">Ingrese su PIN de administrador para acceder al panel</p>
+                        </div>
+                        <div class="form-group mb-3">
+                            <label for="pinInput" class="form-label">PIN de Administrador</label>
+                            <input type="password" class="form-control" id="pinInput" maxlength="4" required pattern="\d{4}" autocomplete="current-password">
+                            <div class="invalid-feedback">PIN inválido - Debe ser 4 dígitos</div>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input type="checkbox" class="form-check-input" id="rememberMe">
+                            <label class="form-check-label" for="rememberMe">Mantener sesión iniciada</label>
+                        </div>
+                        <button type="submit" class="btn btn-danger w-100" id="verifyPin">
+                            <span class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            Iniciar Sesión
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -25,7 +37,12 @@
 
     <!-- Main Dashboard Content -->
     <div id="dashboardContent" style="display: none;">
-        <h2 class="text-danger mb-4">Panel de Gestión</h2>
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2 class="text-danger mb-0">Panel de Gestión</h2>
+            <button class="btn btn-outline-danger" id="logoutBtn">
+                <i data-feather="log-out"></i> Cerrar Sesión
+            </button>
+        </div>
         
         <!-- Analytics Charts -->
         <div class="row mb-4">

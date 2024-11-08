@@ -1,5 +1,5 @@
 import os
-from flask import Flask, render_template, request, jsonify, session
+from flask import Flask, render_template, request, jsonify, session, make_response
 from datetime import datetime, time, timedelta
 from chatbot import generate_response
 from functools import wraps
@@ -30,26 +30,30 @@ RATE_WINDOW = 60  # seconds
 
 app = Flask(__name__)
 
-# Basic configuration
-app.secret_key = os.getenv("FLASK_SECRET_KEY")
-if not app.secret_key:
-    logger.error("Flask secret key not found in environment variables")
-    raise ValueError("Flask secret key is required")
-
-app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URL")
-app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
-    "pool_recycle": 300,
-    "pool_pre_ping": True,
-}
+# Enhanced configuration
+app.config.update(
+    SECRET_KEY=os.getenv("FLASK_SECRET_KEY"),
+    SQLALCHEMY_DATABASE_URI=os.getenv("DATABASE_URL"),
+    SQLALCHEMY_ENGINE_OPTIONS={
+        "pool_recycle": 300,
+        "pool_pre_ping": True,
+    },
+    PERMANENT_SESSION_LIFETIME=timedelta(days=7),
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax'
+)
 
 # Mail configuration
-app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER')
-app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 465))
-app.config['MAIL_USE_TLS'] = os.getenv('MAIL_USE_TLS', 'False').lower() == 'true'
-app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'True').lower() == 'true'
-app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
-app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
-app.config['BASE_URL'] = os.getenv('BASE_URL', 'http://localhost:5000')
+app.config.update(
+    MAIL_SERVER=os.getenv('MAIL_SERVER'),
+    MAIL_PORT=int(os.getenv('MAIL_PORT', 465)),
+    MAIL_USE_TLS=os.getenv('MAIL_USE_TLS', 'False').lower() == 'true',
+    MAIL_USE_SSL=os.getenv('MAIL_USE_SSL', 'True').lower() == 'true',
+    MAIL_USERNAME=os.getenv('MAIL_USERNAME'),
+    MAIL_PASSWORD=os.getenv('MAIL_PASSWORD'),
+    BASE_URL=os.getenv('BASE_URL', 'http://localhost:5000')
+)
 
 # Initialize extensions
 db.init_app(app)
@@ -62,49 +66,60 @@ def check_rate_limit(ip):
     request_counts[ip].append(now)
     return len(request_counts[ip]) <= RATE_LIMIT
 
-# Decorator for PIN protection
+# Enhanced PIN protection decorator
 def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
-            logger.warning("PIN verification required but not found in session")
-            return jsonify({"error": "PIN verification required"}), 401
+            logger.warning("Unauthorized access attempt - PIN verification required")
+            return jsonify({"error": "Unauthorized", "code": "AUTH_REQUIRED"}), 401
         return f(*args, **kwargs)
     return decorated_function
 
-# Validation functions
-def validar_nombre(nombre):
-    return bool(re.match("^[A-Za-zÀ-ÿ\s]{2,100}$", nombre))
+# Session check endpoint
+@app.route('/api/check-session')
+def check_session():
+    return jsonify({"authenticated": bool(session.get('pin_verified'))})
 
-def validar_correo(correo):
-    return bool(re.match(r"[^@]+@[^@]+\.[^@]+", correo))
+# Enhanced PIN verification endpoint
+@app.route('/api/verify-pin', methods=['POST'])
+def verify_pin():
+    try:
+        data = request.get_json()
+        pin = data.get('pin')
+        remember_me = data.get('remember_me', False)
+        correct_pin = os.getenv('CHATBOT_PIN')
+        
+        if not pin or not correct_pin:
+            logger.warning("Missing PIN in verification attempt")
+            return jsonify({"success": False, "error": "PIN inválido"}), 400
+        
+        if pin == correct_pin:
+            session.permanent = remember_me
+            session['pin_verified'] = True
+            session['pin_timestamp'] = datetime.now().timestamp()
+            logger.info("PIN verification successful")
+            return jsonify({"success": True})
+            
+        logger.warning("Invalid PIN attempt")
+        return jsonify({"success": False, "error": "PIN inválido"}), 401
+        
+    except Exception as e:
+        logger.error(f"Error in PIN verification: {str(e)}")
+        return jsonify({"success": False, "error": "Error de servidor"}), 500
 
-def validate_contact_form(data):
-    """Validate contact form data"""
-    errors = {}
-    
-    # Required fields
-    required_fields = {
-        'nombre': 'Nombre es requerido',
-        'email': 'Email es requerido',
-        'telefono': 'Teléfono es requerido',
-        'dudas': 'Por favor, describe tus dudas'
-    }
-    
-    for field, message in required_fields.items():
-        if not data.get(field):
-            errors[field] = message
-    
-    # Email validation
-    if data.get('email') and not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
-        errors['email'] = 'Email inválido'
-    
-    # Phone validation (Spanish format)
-    if data.get('telefono') and not re.match(r"^(?:\+34|0034|34)?[6789]\d{8}$", data['telefono']):
-        errors['telefono'] = 'Número de teléfono inválido'
-    
-    return errors
+# Logout endpoint
+@app.route('/api/logout', methods=['POST'])
+def logout():
+    try:
+        session.clear()
+        logger.info("User logged out successfully")
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Error during logout: {str(e)}")
+        return jsonify({"success": False, "error": "Error during logout"}), 500
 
+# Main routes
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -113,19 +128,7 @@ def index():
 def appointment_management():
     return render_template('appointment_management.html')
 
-@app.route('/api/verify-pin', methods=['POST'])
-def verify_pin():
-    data = request.get_json()
-    pin = data.get('pin')
-    correct_pin = os.getenv('CHATBOT_PIN')
-    
-    if pin == correct_pin:
-        session['pin_verified'] = True
-        logger.info("PIN verification successful")
-        return jsonify({"success": True})
-    logger.warning("Invalid PIN attempt")
-    return jsonify({"success": False})
-
+# API endpoints
 @app.route('/api/contact-submissions', methods=['GET'])
 @require_pin
 def get_contact_submissions():
@@ -310,6 +313,32 @@ def chatbot_response():
     except Exception as e:
         logger.error(f"Error in chatbot response: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
+
+def validate_contact_form(data):
+    """Validate contact form data"""
+    errors = {}
+    
+    # Required fields
+    required_fields = {
+        'nombre': 'Nombre es requerido',
+        'email': 'Email es requerido',
+        'telefono': 'Teléfono es requerido',
+        'dudas': 'Por favor, describe tus dudas'
+    }
+    
+    for field, message in required_fields.items():
+        if not data.get(field):
+            errors[field] = message
+    
+    # Email validation
+    if data.get('email') and not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
+        errors['email'] = 'Email inválido'
+    
+    # Phone validation (Spanish format)
+    if data.get('telefono') and not re.match(r"^(?:\+34|0034|34)?[6789]\d{8}$", data['telefono']):
+        errors['telefono'] = 'Número de teléfono inválido'
+    
+    return errors
 
 if __name__ == "__main__":
     with app.app_context():

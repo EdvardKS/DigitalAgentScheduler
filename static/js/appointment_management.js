@@ -2,6 +2,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const pinModal = new bootstrap.Modal(document.getElementById('pinModal'));
     const dashboardContent = document.getElementById('dashboardContent');
     const editModal = new bootstrap.Modal(document.getElementById('editAppointmentModal'));
+    const pinForm = document.getElementById('pinForm');
+    const verifyPinBtn = document.getElementById('verifyPin');
+    const logoutBtn = document.getElementById('logoutBtn');
 
     // Pagination settings
     let currentPage = 1;
@@ -9,8 +12,39 @@ document.addEventListener('DOMContentLoaded', () => {
     let filteredAppointments = [];
     let currentFilter = 'all';
 
-    // Show PIN modal on page load
-    pinModal.show();
+    // Check for existing session
+    checkSession();
+
+    function checkSession() {
+        fetch('/api/check-session')
+            .then(response => response.json())
+            .then(data => {
+                if (data.authenticated) {
+                    showDashboard();
+                } else {
+                    pinModal.show();
+                }
+            })
+            .catch(error => {
+                console.error('Session check error:', error);
+                pinModal.show();
+            });
+    }
+
+    function showDashboard() {
+        pinModal.hide();
+        dashboardContent.style.display = 'block';
+        loadAppointments();
+        loadContactSubmissions();
+        initializeCharts();
+        feather.replace();
+    }
+
+    function showLoginError(message = 'PIN inválido') {
+        const pinInput = document.getElementById('pinInput');
+        pinInput.classList.add('is-invalid');
+        pinInput.nextElementSibling.textContent = message;
+    }
 
     // Format phone number for display
     function formatPhoneNumber(phone) {
@@ -31,29 +65,66 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // PIN verification
-    document.getElementById('verifyPin').addEventListener('click', () => {
-        const enteredPin = document.getElementById('pinInput').value;
+    // PIN form submission
+    pinForm.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const pinInput = document.getElementById('pinInput');
+        const rememberMe = document.getElementById('rememberMe').checked;
+        const spinner = verifyPinBtn.querySelector('.spinner-border');
+        
+        // Validate PIN format
+        if (!pinInput.value.match(/^\d{4}$/)) {
+            showLoginError('El PIN debe ser 4 dígitos');
+            return;
+        }
+
+        // Disable form and show spinner
+        verifyPinBtn.disabled = true;
+        spinner.classList.remove('d-none');
         
         fetch('/api/verify-pin', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ pin: enteredPin }),
+            body: JSON.stringify({ 
+                pin: pinInput.value,
+                remember_me: rememberMe
+            }),
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                pinModal.hide();
-                dashboardContent.style.display = 'block';
-                loadAppointments();
-                loadContactSubmissions();
-                initializeCharts();
+                showDashboard();
+                pinInput.value = '';
             } else {
-                document.getElementById('pinInput').classList.add('is-invalid');
+                showLoginError();
             }
+        })
+        .catch(error => {
+            console.error('Login error:', error);
+            showLoginError('Error al verificar el PIN');
+        })
+        .finally(() => {
+            verifyPinBtn.disabled = false;
+            spinner.classList.add('d-none');
         });
+    });
+
+    // Logout handler
+    logoutBtn.addEventListener('click', () => {
+        fetch('/api/logout', { method: 'POST' })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    dashboardContent.style.display = 'none';
+                    pinModal.show();
+                }
+            })
+            .catch(error => {
+                console.error('Logout error:', error);
+                alert('Error al cerrar sesión');
+            });
     });
 
     // Load contact submissions
@@ -415,13 +486,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Add refresh handler for contact submissions
     document.getElementById('refreshSubmissions').addEventListener('click', loadContactSubmissions);
-
-    // Handle Enter key in PIN input
-    document.getElementById('pinInput').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            document.getElementById('verifyPin').click();
-        }
-    });
 
     // Refresh appointments
     document.getElementById('refreshAppointments').addEventListener('click', loadAppointments);
