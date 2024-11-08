@@ -63,6 +63,69 @@ mail.init_app(app)
 def index():
     return render_template('index.html')
 
+def validate_contact_form(data):
+    """Validate contact form data"""
+    errors = {}
+    
+    # Name validation (2-100 characters, letters and spaces only)
+    if not data.get('nombre') or not re.match("^[A-Za-zÀ-ÿ\s]{2,100}$", data['nombre']):
+        errors['nombre'] = "Por favor, ingresa un nombre válido (2-100 caracteres)"
+    
+    # Email validation
+    if not data.get('email') or not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
+        errors['email'] = "Por favor, ingresa un email válido"
+    
+    # Phone validation (Spanish phone number format)
+    if not data.get('telefono') or not re.match(r"^(?:\+34|0034|34)?[6789]\d{8}$", data['telefono']):
+        errors['telefono'] = "Por favor, ingresa un número de teléfono válido"
+    
+    # Message validation (required, max 1000 characters)
+    if not data.get('dudas') or len(data['dudas']) > 1000:
+        errors['dudas'] = "Por favor, ingresa un mensaje válido (máximo 1000 caracteres)"
+    
+    return errors
+
+@app.route('/api/contact', methods=['POST'])
+def contact():
+    """Handle contact form submissions"""
+    try:
+        # Get form data
+        data = request.json
+        if not data:
+            return jsonify({
+                "error": "No se recibieron datos",
+                "detail": "Por favor, completa el formulario"
+            }), 400
+        
+        # Validate form data
+        validation_errors = validate_contact_form(data)
+        if validation_errors:
+            return jsonify({
+                "error": "Error de validación",
+                "validation_errors": validation_errors
+            }), 400
+        
+        # Send notification emails
+        try:
+            send_contact_form_notification(data)
+            return jsonify({
+                "message": "Mensaje enviado con éxito",
+                "detail": "Te hemos enviado un correo de confirmación"
+            }), 200
+        except Exception as e:
+            logger.error(f"Error sending contact form notification: {str(e)}")
+            return jsonify({
+                "error": "Error al enviar el mensaje",
+                "detail": "Ha ocurrido un error al procesar tu solicitud. Por favor, inténtalo de nuevo más tarde."
+            }), 500
+            
+    except Exception as e:
+        logger.error(f"Error processing contact form: {str(e)}")
+        return jsonify({
+            "error": "Error del servidor",
+            "detail": "Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo más tarde."
+        }), 500
+
 @app.route('/api/test-email', methods=['POST'])
 def test_email():
     """Test route for email functionality"""
