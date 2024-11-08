@@ -40,23 +40,43 @@
                         </div>
                         <div class="form-group mb-3">
                             <label for="pinInput" class="form-label">Contraseña de Administrador</label>
-                            <div class="input-group">
+                            <div class="input-group has-validation">
                                 <input type="password" class="form-control" id="pinInput" required minlength="8" autocomplete="current-password">
                                 <button class="btn btn-outline-secondary" type="button" id="togglePassword">
                                     <i data-feather="eye"></i>
                                 </button>
+                                <div class="invalid-feedback"></div>
                             </div>
-                            <div class="invalid-feedback">Contraseña inválida</div>
-                            <small class="form-text text-muted">
-                                La contraseña debe contener al menos:
-                                <ul class="mb-0">
-                                    <li>8 caracteres</li>
-                                    <li>Una letra mayúscula</li>
-                                    <li>Una letra minúscula</li>
-                                    <li>Un número</li>
-                                    <li>Un carácter especial (!@#$%^&*)</li>
+                            <div id="passwordRequirements" class="mt-3 p-3 border rounded bg-light">
+                                <h6 class="mb-2">Requisitos de la contraseña:</h6>
+                                <ul class="list-unstyled mb-0">
+                                    <li class="requirement" data-requirement="length">
+                                        <i data-feather="check" class="text-success me-2 d-none"></i>
+                                        <i data-feather="x" class="text-danger me-2"></i>
+                                        Mínimo 8 caracteres
+                                    </li>
+                                    <li class="requirement" data-requirement="uppercase">
+                                        <i data-feather="check" class="text-success me-2 d-none"></i>
+                                        <i data-feather="x" class="text-danger me-2"></i>
+                                        Una letra mayúscula
+                                    </li>
+                                    <li class="requirement" data-requirement="lowercase">
+                                        <i data-feather="check" class="text-success me-2 d-none"></i>
+                                        <i data-feather="x" class="text-danger me-2"></i>
+                                        Una letra minúscula
+                                    </li>
+                                    <li class="requirement" data-requirement="number">
+                                        <i data-feather="check" class="text-success me-2 d-none"></i>
+                                        <i data-feather="x" class="text-danger me-2"></i>
+                                        Un número
+                                    </li>
+                                    <li class="requirement" data-requirement="special">
+                                        <i data-feather="check" class="text-success me-2 d-none"></i>
+                                        <i data-feather="x" class="text-danger me-2"></i>
+                                        Un carácter especial (!@#$%^&*)
+                                    </li>
                                 </ul>
-                            </small>
+                            </div>
                         </div>
                         <div class="form-check mb-3">
                             <input type="checkbox" class="form-check-input" id="rememberMe">

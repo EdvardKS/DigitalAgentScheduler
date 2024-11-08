@@ -11,6 +11,7 @@ import logging
 import re
 from dotenv import load_dotenv
 from werkzeug.security import generate_password_hash, check_password_hash
+from collections import defaultdict
 
 # Load environment variables
 load_dotenv()
@@ -23,8 +24,6 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Initialize rate limiting
-from datetime import datetime, timedelta
-from collections import defaultdict
 request_counts = defaultdict(list)
 RATE_LIMIT = 30  # requests per minute
 RATE_WINDOW = 60  # seconds
@@ -69,22 +68,28 @@ def check_rate_limit(ip):
 
 def validate_password(password):
     """Validate password complexity"""
+    errors = []
+    
     if len(password) < 8:
-        return False, "La contraseña debe tener al menos 8 caracteres"
+        errors.append("La contraseña debe tener al menos 8 caracteres")
     
     if not re.search(r"[A-Z]", password):
-        return False, "La contraseña debe contener al menos una letra mayúscula"
+        errors.append("La contraseña debe contener al menos una letra mayúscula")
         
     if not re.search(r"[a-z]", password):
-        return False, "La contraseña debe contener al menos una letra minúscula"
+        errors.append("La contraseña debe contener al menos una letra minúscula")
         
     if not re.search(r"\d", password):
-        return False, "La contraseña debe contener al menos un número"
+        errors.append("La contraseña debe contener al menos un número")
         
     if not re.search(r"[!@#$%^&*(),.?\":{}|<>]", password):
-        return False, "La contraseña debe contener al menos un carácter especial"
+        errors.append("La contraseña debe contener al menos un carácter especial")
         
-    return True, None
+    return (len(errors) == 0, errors[0] if errors else None)
+
+def is_legacy_pin(password):
+    """Check if the password is in the legacy PIN format"""
+    return len(password) == 4 and password.isdigit()
 
 # Enhanced PIN protection decorator
 def require_pin(f):
@@ -114,22 +119,35 @@ def verify_pin():
             logger.warning("Missing password in verification attempt")
             return jsonify({"success": False, "error": "Contraseña requerida"}), 400
 
-        # Validate password complexity for new passwords
-        if password != stored_password and len(password) > 4:  # Only validate if it's a new complex password
-            is_valid, error_message = validate_password(password)
+        # Handle legacy PIN format
+        if is_legacy_pin(stored_password):
+            if password == stored_password:
+                logger.info("Legacy PIN verification successful")
+                session.permanent = remember_me
+                session['pin_verified'] = True
+                session['pin_timestamp'] = datetime.now().timestamp()
+                
+                # Hash and update the PIN if it's a new complex password
+                if not is_legacy_pin(password):
+                    is_valid, error = validate_password(password)
+                    if is_valid:
+                        stored_password = generate_password_hash(password)
+                        # Here you would typically update the stored password in your configuration
+                        logger.info("Updated to complex password format")
+                
+                return jsonify({"success": True})
+            else:
+                logger.warning("Invalid legacy PIN attempt")
+                return jsonify({"success": False, "error": "PIN inválido"}), 401
+
+        # Validate new password format
+        if not is_legacy_pin(password):
+            is_valid, error = validate_password(password)
             if not is_valid:
-                logger.warning(f"Invalid password format: {error_message}")
-                return jsonify({"success": False, "error": error_message}), 400
+                logger.warning(f"Invalid password format: {error}")
+                return jsonify({"success": False, "error": error}), 400
 
-        # If it's the old PIN format, do direct comparison
-        if len(stored_password) == 4 and password == stored_password:
-            logger.info("Legacy PIN verification successful")
-            session.permanent = remember_me
-            session['pin_verified'] = True
-            session['pin_timestamp'] = datetime.now().timestamp()
-            return jsonify({"success": True})
-
-        # For complex passwords, use secure comparison
+        # Verify complex password
         if check_password_hash(stored_password, password):
             logger.info("Password verification successful")
             session.permanent = remember_me
