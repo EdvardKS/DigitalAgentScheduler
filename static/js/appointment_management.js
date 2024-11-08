@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const logoutBtn = document.getElementById('logoutBtn');
     const pinInput = document.getElementById('pinInput');
     const rememberMeCheckbox = document.getElementById('rememberMe');
+    const rememberMeLabel = document.querySelector('label[for="rememberMe"]');
 
     // Check for existing session
     checkSession();
@@ -17,6 +18,10 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 if (data.authenticated) {
                     showDashboard();
+                    // Update remember me checkbox if session was remembered
+                    if (data.remember_me) {
+                        rememberMeCheckbox.checked = true;
+                    }
                 } else {
                     pinModal.show();
                 }
@@ -65,7 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // PIN form submission
+    // PIN form submission with enhanced session handling
     pinForm.addEventListener('submit', (e) => {
         e.preventDefault();
 
@@ -110,6 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
         .then(data => {
             if (data.success) {
                 showDashboard();
+                // Update remember me checkbox based on server response
+                rememberMeCheckbox.checked = data.remember_me;
             } else {
                 showLoginError(data.error || 'PIN inválido');
             }
@@ -134,12 +141,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // Logout handler
+    // Enhanced logout handler with session persistence handling
     logoutBtn.addEventListener('click', () => {
         fetch('/api/logout', { method: 'POST' })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Reset form and checkboxes
+                    pinForm.reset();
+                    rememberMeCheckbox.checked = false;
                     dashboardContent.style.display = 'none';
                     pinModal.show();
                 }

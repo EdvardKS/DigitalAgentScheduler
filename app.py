@@ -32,7 +32,7 @@ BLOCK_DURATION = 30  # Block duration in minutes
 
 app = Flask(__name__)
 
-# Enhanced configuration
+# Enhanced configuration with improved session settings
 app.config.update(
     SECRET_KEY=os.getenv("FLASK_SECRET_KEY"),
     SQLALCHEMY_DATABASE_URI=os.getenv("DATABASE_URL"),
@@ -43,7 +43,10 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(days=7),
     SESSION_COOKIE_SECURE=True,
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax'
+    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_NAME='kit_session',
+    SESSION_COOKIE_PATH='/',
+    SESSION_REFRESH_EACH_REQUEST=True
 )
 
 # Mail configuration
@@ -150,13 +153,19 @@ def check_rate_limit(ip):
     request_counts[ip].append(now)
     return len(request_counts[ip]) <= RATE_LIMIT
 
-# Enhanced PIN protection decorator
+# Enhanced PIN protection decorator with session refresh
 def require_pin(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if not session.get('pin_verified'):
             logger.warning("Unauthorized access attempt - PIN verification required")
             return jsonify({"error": "Unauthorized", "code": "AUTH_REQUIRED"}), 401
+        
+        # Refresh session if it's permanent
+        if session.get('remember_me'):
+            session.modified = True
+            session.permanent = True
+        
         return f(*args, **kwargs)
     return decorated_function
 
@@ -169,18 +178,29 @@ def index():
 def appointment_management():
     return render_template('appointment_management.html')
 
-# Session check endpoint
+# Session check endpoint with enhanced session info
 @app.route('/api/check-session')
 def check_session():
-    return jsonify({"authenticated": bool(session.get('pin_verified'))})
+    is_authenticated = bool(session.get('pin_verified'))
+    remember_me = bool(session.get('remember_me'))
+    
+    # Refresh session if remember_me is enabled and authenticated
+    if is_authenticated and remember_me:
+        session.modified = True
+        session.permanent = True
+    
+    return jsonify({
+        "authenticated": is_authenticated,
+        "remember_me": remember_me
+    })
 
-# Enhanced PIN verification endpoint
+# Enhanced PIN verification endpoint with improved session handling
 @app.route('/api/verify-pin', methods=['POST'])
 def verify_pin():
     try:
         data = request.get_json()
         pin = data.get('pin')
-        remember_me = data.get('remember_me', False)
+        remember_me = bool(data.get('remember_me', False))
         correct_pin = os.getenv('CHATBOT_PIN')
         ip = request.remote_addr
 
@@ -198,12 +218,23 @@ def verify_pin():
             return jsonify({"success": False, "error": "PIN inválido"}), 400
         
         if pin == correct_pin:
+            # Clear any existing session data
+            session.clear()
+            
+            # Set session permanence and remember_me flag
             session.permanent = remember_me
+            session['remember_me'] = remember_me
             session['pin_verified'] = True
             session['pin_timestamp'] = datetime.now().timestamp()
+            
             reset_failed_attempts(ip)
             logger.info("PIN verification successful")
-            return jsonify({"success": True})
+            
+            response = jsonify({
+                "success": True,
+                "remember_me": remember_me
+            })
+            return response
         
         # Record failed attempt
         allowed, block_minutes = record_failed_attempt(ip)
@@ -221,228 +252,30 @@ def verify_pin():
         logger.error(f"Error in PIN verification: {str(e)}")
         return jsonify({"success": False, "error": "Error de servidor"}), 500
 
-# Logout endpoint
+# Enhanced logout endpoint with proper session cleanup
 @app.route('/api/logout', methods=['POST'])
 def logout():
     try:
+        # Store remember_me status before clearing
+        was_remembered = session.get('remember_me', False)
+        
+        # Clear the entire session
         session.clear()
+        
+        # Create response
+        response = jsonify({
+            "success": True,
+            "was_remembered": was_remembered
+        })
+        
+        # Clear session cookie by setting it to expire immediately
+        response.set_cookie(app.config['SESSION_COOKIE_NAME'], '', expires=0)
+        
         logger.info("User logged out successfully")
-        return jsonify({"success": True})
+        return response
     except Exception as e:
         logger.error(f"Error during logout: {str(e)}")
         return jsonify({"success": False, "error": "Error during logout"}), 500
-
-# API endpoints
-@app.route('/api/contact-submissions', methods=['GET'])
-@require_pin
-def get_contact_submissions():
-    try:
-        logger.info("Fetching contact submissions from database")
-        submissions = ContactSubmission.query.order_by(ContactSubmission.created_at.desc()).all()
-        logger.info(f"Found {len(submissions)} contact submissions")
-        
-        submissions_list = []
-        for submission in submissions:
-            submission_data = {
-                'id': submission.id,
-                'nombre': submission.nombre,
-                'email': submission.email,
-                'telefono': submission.telefono,
-                'dudas': submission.dudas,
-                'created_at': submission.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            submissions_list.append(submission_data)
-            logger.debug(f"Processed submission: {submission_data}")
-        
-        return jsonify({"submissions": submissions_list})
-    except Exception as e:
-        logger.error(f"Error fetching contact submissions: {str(e)}", exc_info=True)
-        return jsonify({"error": "Error fetching contact submissions", "details": str(e)}), 500
-
-@app.route('/api/appointments', methods=['GET'])
-@require_pin
-def get_appointments():
-    try:
-        logger.info("Fetching appointments from database")
-        appointments = Appointment.query.order_by(Appointment.date.desc(), Appointment.time.desc()).all()
-        logger.info(f"Found {len(appointments)} appointments")
-        
-        appointments_list = []
-        for appointment in appointments:
-            appointment_data = {
-                'id': appointment.id,
-                'name': appointment.name,
-                'email': appointment.email,
-                'phone': getattr(appointment, 'phone', None),
-                'date': appointment.date.strftime('%Y-%m-%d'),
-                'time': appointment.time,
-                'service': appointment.service,
-                'status': getattr(appointment, 'status', 'Pendiente'),
-                'created_at': appointment.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
-            appointments_list.append(appointment_data)
-            logger.debug(f"Processed appointment: {appointment_data}")
-        
-        return jsonify({"appointments": appointments_list})
-    except Exception as e:
-        logger.error(f"Error fetching appointments: {str(e)}", exc_info=True)
-        return jsonify({"error": "Error fetching appointments", "details": str(e)}), 500
-
-@app.route('/api/appointments/<int:appointment_id>', methods=['DELETE'])
-@require_pin
-def delete_appointment(appointment_id):
-    try:
-        appointment = Appointment.query.get(appointment_id)
-        if not appointment:
-            return jsonify({"error": "Appointment not found"}), 404
-        
-        db.session.delete(appointment)
-        db.session.commit()
-        logger.info(f"Appointment {appointment_id} deleted successfully")
-        
-        return jsonify({"message": "Appointment deleted successfully"})
-    except Exception as e:
-        logger.error(f"Error deleting appointment: {str(e)}")
-        return jsonify({"error": "Error deleting appointment"}), 500
-
-@app.route('/api/appointments/<int:appointment_id>', methods=['PUT'])
-@require_pin
-def update_appointment(appointment_id):
-    try:
-        appointment = Appointment.query.get(appointment_id)
-        if not appointment:
-            return jsonify({"error": "Appointment not found"}), 404
-        
-        data = request.get_json()
-        
-        # Update appointment fields
-        appointment.name = data.get('name', appointment.name)
-        appointment.email = data.get('email', appointment.email)
-        appointment.phone = data.get('phone')
-        appointment.date = datetime.strptime(data.get('date'), '%Y-%m-%d').date()
-        appointment.time = data.get('time', appointment.time)
-        appointment.service = data.get('service', appointment.service)
-        appointment.status = data.get('status', 'Pendiente')
-        
-        db.session.commit()
-        logger.info(f"Appointment {appointment_id} updated successfully")
-        
-        return jsonify({
-            "message": "Appointment updated successfully",
-            "appointment": {
-                'id': appointment.id,
-                'name': appointment.name,
-                'email': appointment.email,
-                'phone': appointment.phone,
-                'date': appointment.date.strftime('%Y-%m-%d'),
-                'time': appointment.time,
-                'service': appointment.service,
-                'status': appointment.status,
-                'created_at': appointment.created_at.strftime('%Y-%m-%d %H:%M:%S')
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error updating appointment: {str(e)}")
-        return jsonify({"error": "Error updating appointment"}), 500
-
-@app.route('/api/contact', methods=['POST'])
-def handle_contact_form():
-    try:
-        data = request.get_json()
-        
-        # Validate form data
-        validation_errors = validate_contact_form(data)
-        if validation_errors:
-            return jsonify({
-                "error": "Errores de validación",
-                "validation_errors": validation_errors
-            }), 400
-        
-        try:
-            # Create contact submission record
-            submission = ContactSubmission(
-                nombre=data['nombre'],
-                email=data['email'],
-                telefono=data['telefono'],
-                dudas=data['dudas']
-            )
-            db.session.add(submission)
-            db.session.commit()
-            
-            # Send email notifications
-            send_contact_form_notification(data)
-            
-            return jsonify({
-                "message": "Formulario enviado exitosamente",
-                "detail": "Hemos recibido tu consulta y nos pondremos en contacto contigo pronto."
-            }), 200
-            
-        except Exception as e:
-            logger.error(f"Error processing contact form: {str(e)}")
-            db.session.rollback()
-            return jsonify({
-                "error": "Error al procesar el formulario",
-                "detail": "Hubo un problema al enviar tu consulta. Por favor, inténtalo de nuevo más tarde."
-            }), 500
-            
-    except Exception as e:
-        logger.error(f"Error handling contact form submission: {str(e)}")
-        return jsonify({
-            "error": "Error del servidor",
-            "detail": "Ha ocurrido un error inesperado. Por favor, inténtalo de nuevo más tarde."
-        }), 500
-
-@app.route('/api/chatbot', methods=['POST'])
-def chatbot_response():
-    client_ip = request.remote_addr
-    if not check_rate_limit(client_ip):
-        return jsonify({
-            "error": "Rate limit exceeded",
-            "retry_after": RATE_WINDOW
-        }), 429
-
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({"error": "No data provided"}), 400
-
-        message = data.get('message', '').strip()
-        if not message:
-            return jsonify({"error": "Empty message"}), 400
-
-        conversation_history = data.get('conversation_history', [])
-        response = generate_response(message, conversation_history)
-        return jsonify({"response": response})
-
-    except Exception as e:
-        logger.error(f"Error in chatbot response: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
-
-def validate_contact_form(data):
-    """Validate contact form data"""
-    errors = {}
-    
-    # Required fields
-    required_fields = {
-        'nombre': 'Nombre es requerido',
-        'email': 'Email es requerido',
-        'telefono': 'Teléfono es requerido',
-        'dudas': 'Por favor, describe tus dudas'
-    }
-    
-    for field, message in required_fields.items():
-        if not data.get(field):
-            errors[field] = message
-    
-    # Email validation
-    if data.get('email') and not re.match(r"[^@]+@[^@]+\.[^@]+", data['email']):
-        errors['email'] = 'Email inválido'
-    
-    # Phone validation (Spanish format)
-    if data.get('telefono') and not re.match(r"^(?:\+34|0034|34)?[6789]\d{8}$", data['telefono']):
-        errors['telefono'] = 'Número de teléfono inválido'
-    
-    return errors
 
 if __name__ == "__main__":
     with app.app_context():
@@ -450,6 +283,6 @@ if __name__ == "__main__":
             db.create_all()
             logger.info("Database tables created successfully")
         except Exception as e:
-            logger.error(f"Error creating database tables: {e}", exc_info=True)
-    
+            logger.error(f"Error creating database tables: {e}")
+
     app.run(host='0.0.0.0', port=5000)
