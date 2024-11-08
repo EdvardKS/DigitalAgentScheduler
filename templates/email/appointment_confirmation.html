@@ -50,7 +50,7 @@
 </head>
 <body>
     <div class="header">
-        <img src="cid:logo" alt="KIT CONSULTING" class="logo">
+        <img src="https://kitconsulting.icu/static/img/logo-navegatel.png" alt="KIT CONSULTING" class="logo">
         <h2>Confirmación de Cita</h2>
     </div>
 
@@ -64,7 +64,7 @@
         <p><strong>Fecha:</strong> {{ date }}</p>
         <p><strong>Hora:</strong> {{ time }}</p>
         <p><strong>Consultor:</strong> Edvard Khachatryan</p>
-        <p><strong>Ubicación:</strong> Consulta Virtual (recibirás el enlace 1 hora antes)</p>
+        <p><strong>Ubicación:</strong> Consulta Virtual</p>
     </div>
 
     <div class="details">
@@ -76,12 +76,6 @@
         {% endif %}
     </div>
 
-    <p>Recibirás un recordatorio 24 horas antes de tu cita.</p>
-
-    <div style="text-align: center; margin: 30px 0;">
-        <a href="{{ reschedule_url }}" class="button">Reprogramar Cita</a>
-        <a href="{{ cancel_url }}" class="button" style="background-color: #6c757d;">Cancelar Cita</a>
-    </div>
 
     <p>Si tienes alguna pregunta o necesitas modificar tu cita, no dudes en contactarnos:</p>
     <p style="text-align: center;">
@@ -90,7 +84,7 @@
 
     <div class="footer">
         <p>KIT CONSULTING - Transformación Digital</p>
-        <p>Este es un correo automático, por favor no responder directamente.</p>
+        <p>Este es un correo automático, por favor no responda directamente.</p>
     </div>
 </body>
 </html>
