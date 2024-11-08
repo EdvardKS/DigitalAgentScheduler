@@ -24,7 +24,7 @@
     </div>
 
     <!-- Main Dashboard Content -->
-    <div id="dashboardContent" style="display: none;">
+    <div id="dashboardContent" style="display: none;" class="d-flex flex-column vh-100">
         <h2 class="text-danger mb-4">Panel de Gestión de Citas</h2>
         
         <!-- Analytics Charts -->
@@ -80,7 +80,7 @@
         </div>
 
         <!-- Appointments Table -->
-        <div class="card mb-4">
+        <div class="card flex-grow-1 mb-4 d-flex flex-column">
             <div class="card-header d-flex justify-content-between align-items-center bg-danger text-white">
                 <h5 class="mb-0">Citas Programadas</h5>
                 <div>
@@ -100,9 +100,9 @@
                     </div>
                 </div>
             </div>
-            <div class="card-body">
-                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
-                    <table class="table">
+            <div class="card-body p-0 flex-grow-1 d-flex flex-column">
+                <div class="table-responsive flex-grow-1">
+                    <table class="table mb-0">
                         <thead class="sticky-top bg-white">
                             <tr>
                                 <th>Fecha</th>
@@ -119,7 +119,7 @@
                         </tbody>
                     </table>
                 </div>
-                <div class="d-flex justify-content-between align-items-center mt-3">
+                <div class="d-flex justify-content-between align-items-center p-3 border-top">
                     <div class="text-muted">
                         <span id="totalRecords">0</span> registros encontrados
                     </div>
