@@ -18,11 +18,15 @@ document.addEventListener('DOMContentLoaded', () => {
             .then(data => {
                 if (data.authenticated) {
                     showDashboard();
-                    // Update remember me checkbox if session was remembered
-                    if (data.remember_me) {
-                        rememberMeCheckbox.checked = true;
-                    }
+                    // Update remember me checkbox based on server state
+                    rememberMeCheckbox.checked = data.remember_me;
                 } else {
+                    // Clear any existing form data
+                    pinForm.reset();
+                    // Show login form if session is expired or invalid
+                    if (data.session_expired) {
+                        showLoginError('Su sesión ha expirado. Por favor, inicie sesión nuevamente.');
+                    }
                     pinModal.show();
                 }
             })
